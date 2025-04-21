@@ -1,0 +1,37 @@
+{
+    "name": "@reldens/server-utils",
+    "scope": "@reldens",
+    "version": "0.1.0",
+    "description": "Reldens - Server Utils",
+    "author": "Damian A. Pastorini",
+    "license": "MIT",
+    "homepage": "https://github.com/damian-pastorini/reldens-server-utils",
+    "source": true,
+    "main": "index.js",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/damian-pastorini/reldens-server-utils.git"
+    },
+    "keywords": [
+        "reldens",
+        "utils",
+        "shortcuts",
+        "system",
+        "game",
+        "mmorpg",
+        "rpg",
+        "dwd",
+        "colyseus",
+        "phaser",
+        "parcel",
+        "nodejs",
+        "mmo",
+        "multiplayer",
+        "rol",
+        "platform",
+        "framework"
+    ],
+    "bugs": {
+        "url": "https://github.com/damian-pastorini/reldens-server-utils/issues"
+    }
+}
