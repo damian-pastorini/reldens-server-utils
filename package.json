@@ -1,7 +1,7 @@
 {
     "name": "@reldens/server-utils",
     "scope": "@reldens",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "description": "Reldens - Server Utils",
     "author": "Damian A. Pastorini",
     "license": "MIT",
@@ -40,6 +40,8 @@
         "express": "4.21.2",
         "express-rate-limit": "7.5.0",
         "express-session": "1.18.1",
-        "multer": "^1.4.5-lts.2"
+        "helmet": "8.1.0",
+        "multer": "^1.4.5-lts.2",
+        "xss-clean": "^0.1.4"
     }
 }
