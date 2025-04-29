@@ -1,7 +1,7 @@
 {
     "name": "@reldens/server-utils",
     "scope": "@reldens",
-    "version": "0.14.0",
+    "version": "0.15.0",
     "description": "Reldens - Server Utils",
     "author": "Damian A. Pastorini",
     "license": "MIT",
