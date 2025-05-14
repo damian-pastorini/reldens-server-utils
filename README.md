@@ -12,6 +12,7 @@ A set of helpers for Node.js to create a server and handle files.
 - File handler.
 - Express server factory.
 - Multer uploader factory.
+- Password manager.
 
 Need something specific?
 
