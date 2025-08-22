@@ -40,7 +40,7 @@ A Node.js server toolkit providing secure application server creation, file hand
 - Password hashing using PBKDF2 with configurable iterations
 - Password validation against stored hashes
 - AES-256-GCM data encryption and decryption
-- Secure token generation with customizable length
+- Secure token generation with a customizable length
 - TOTP (Time-based One-Time Password) generation
 - Data hashing with multiple algorithms (SHA-256, SHA-512, MD5)
 - HMAC generation and verification
@@ -245,8 +245,9 @@ let serverResult = appServerFactory.createAppServer({
 ### FileHandler Methods
 
 - `exists(path)` - Checks if file or folder exists
-- `createFolder(path)` - Creates folder with recursive option
+- `createFolder(path)` - Creates folder with a recursive option
 - `remove(path)` - Removes file or folder recursively
+- `removeMultiple(filePaths)` - Removes multiple files from an array of paths
 - `copyFile(source, destination)` - Copies file to destination
 - `copyFolderSync(source, destination)` - Copies folder recursively
 - `readFile(path)` - Reads file contents as string
@@ -254,14 +255,14 @@ let serverResult = appServerFactory.createAppServer({
 - `fetchFileJson(path)` - Reads and parses JSON file
 - `fetchFileContents(path)` - Reads file with validation
 - `updateFileContents(path, content)` - Updates existing file
-- `isFile(path)` - Checks if path is file
-- `isFolder(path)` - Checks if path is folder
+- `isFile(path)` - Checks if a path is a file
+- `isFolder(path)` - Checks if a path is folder
 - `getFilesInFolder(path, extensions)` - Lists files with optional filtering
 - `validateFileType(path, type, allowedTypes, maxSize)` - Validates file type and size
 - `detectFileType(path)` - Detects MIME type from file signature
 - `generateSecureFilename(originalName)` - Generates cryptographically secure filename
 - `quarantineFile(path, reason)` - Moves file to quarantine folder
-- `createTempFile(prefix, extension)` - Creates temporary file path
+- `createTempFile(prefix, extension)` - Creates a temporary file path
 
 ### Encryptor Methods
 
@@ -281,9 +282,8 @@ let serverResult = appServerFactory.createAppServer({
 
 - `createUploader(fields, buckets, allowedTypes)` - Creates multer upload middleware
 - `validateFilenameSecurity(filename)` - Validates filename for security
-- `validateFile(file, allowedType, callback)` - Validates file during upload
+- `validateFile(file, allowedType, callback)` - Validates a file during upload
 - `validateFileContents(file, allowedType)` - Validates file content after upload
-- `cleanupFiles(files)` - Removes uploaded files on error
 
 ## Security Features
 
@@ -291,7 +291,7 @@ let serverResult = appServerFactory.createAppServer({
 All file operations include comprehensive path validation to prevent directory traversal attacks and access to system files.
 
 ### Secure File Upload
-File uploads are validated at multiple levels including filename, MIME type, file extension, file size, and content validation using magic number detection.
+File uploads are validated at multiple levels including filename, MIME type, file extension, file size, and content validation using magic number detection. Failed uploads are automatically cleaned up using efficient file removal.
 
 ### Rate Limiting
 Configurable rate limiting with development mode detection for appropriate thresholds in different environments.
