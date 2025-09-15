@@ -1,0 +1,29 @@
+--- a/lib/app-server-factory.js
++++ b/lib/app-server-factory.js
+@@ -141,10 +141,14 @@ class AppServerFactory
+
+     addHttpDomainsAsDevelopment()
+     {
++        console.log('ENV VARS:', process.env.RELDENS_APP_HOST, process.env.RELDENS_PUBLIC_URL);
+         let hostDomain = this.extractDomainFromHttpUrl(process.env.RELDENS_APP_HOST);
+         let publicDomain = this.extractDomainFromHttpUrl(process.env.RELDENS_PUBLIC_URL);
++        console.log('EXTRACTED DOMAINS:', hostDomain, publicDomain);
+         if(hostDomain && !this.developmentDomains.includes(hostDomain)){
+             this.developmentDomains.push(hostDomain);
++            console.log('ADDED HOST DOMAIN:', hostDomain);
+         }
+         if(publicDomain && !this.developmentDomains.includes(publicDomain)){
+             this.developmentDomains.push(publicDomain);
++            console.log('ADDED PUBLIC DOMAIN:', publicDomain);
+         }
++        console.log('FINAL DEVELOPMENT DOMAINS:', this.developmentDomains);
+     }
+@@ -154,6 +158,7 @@ class AppServerFactory
+         this.isDevelopmentMode = this.developmentModeDetector.detect({
+             developmentPatterns: this.developmentPatterns,
+             developmentEnvironments: this.developmentEnvironments,
+             developmentDomains: this.developmentDomains,
+             domains: this.domains
+         });
++        console.log('DEVELOPMENT MODE DETECTED:', this.isDevelopmentMode);
+     }
