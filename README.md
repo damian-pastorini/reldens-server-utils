@@ -1,13 +1,13 @@
 # Reldens - Server Utils
 
-A Node.js server toolkit providing secure application server creation, file handling, encryption, and file upload capabilities for production-ready applications.
+A Node.js server toolkit providing secure application server creation, file handling, encryption, and file upload capabilities for production-ready applications with modular security configurations.
 
 [![Reldens - GitHub - Release](https://www.dwdeveloper.com/media/reldens/reldens-mmorpg-platform.png)](https://github.com/damian-pastorini/reldens)
 
 ## Features
 
 ### AppServerFactory
-- Complete Express.js server configuration with security defaults
+- Complete Express.js server configuration with modular security
 - HTTPS/HTTP server creation with SSL certificate management
 - SNI (Server Name Indication) support for multi-domain hosting
 - Virtual host management with domain mapping
@@ -20,7 +20,17 @@ A Node.js server toolkit providing secure application server creation, file hand
 - Trusted proxy configuration
 - Request parsing with size limits and validation
 - Static file serving with security headers
+- Compression middleware with smart filtering
 - Input validation utilities
+
+#### Modular Security Components
+The AppServerFactory now uses specialized security configurers:
+
+- **CorsConfigurer** - Dynamic CORS origin validation with development domain support
+- **DevelopmentModeDetector** - Automatic development environment detection
+- **ProtocolEnforcer** - Protocol redirection with development mode awareness
+- **RateLimitConfigurer** - Global and endpoint-specific rate limiting
+- **SecurityConfigurer** - Helmet integration with CSP management and XSS protection
 
 ### FileHandler
 - Secure file system operations with path validation
@@ -34,6 +44,8 @@ A Node.js server toolkit providing secure application server creation, file hand
 - Temporary file creation
 - File quarantine functionality for security threats
 - Binary file head reading for type detection
+- Directory walking with callback processing
+- File comparison and relative path calculations
 - Comprehensive error handling with detailed context
 
 ### Encryptor
@@ -77,7 +89,8 @@ let appServerFactory = new AppServerFactory();
 let serverResult = appServerFactory.createAppServer({
     port: 3000,
     useHttps: false,
-    autoListen: true
+    autoListen: true,
+    useCompression: true
 });
 
 if(serverResult){
@@ -183,7 +196,9 @@ let serverResult = appServerFactory.createAppServer({
     useVirtualHosts: true,
     keyPath: '/ssl/default.key',
     certPath: '/ssl/default.crt',
-    port: 443
+    port: 443,
+    enforceProtocol: true,
+    developmentMultiplier: 10
 });
 ```
 
@@ -192,7 +207,7 @@ let serverResult = appServerFactory.createAppServer({
 ```javascript
 let appServerFactory = new AppServerFactory();
 
-// Add development domains
+// Add development domains (automatically detected)
 appServerFactory.addDevelopmentDomain('localhost');
 appServerFactory.addDevelopmentDomain('dev.myapp.local');
 
@@ -200,6 +215,11 @@ let serverResult = appServerFactory.createAppServer({
     port: 3000,
     corsOrigin: ['http://localhost:3000', 'http://dev.myapp.local:3000'],
     developmentMultiplier: 5, // More lenient rate limiting in dev
+    developmentPorts: [3000, 3001, 8080],
+    developmentExternalDomains: {
+        'script-src': ['https://cdn.example.com'],
+        'style-src': ['https://fonts.googleapis.com']
+    }
 });
 ```
 
@@ -222,7 +242,9 @@ let serverResult = appServerFactory.createAppServer({
     globalRateLimit: 100, // requests per window
     windowMs: 60000, // 1 minute
     maxRequests: 30,
-    trustedProxy: '127.0.0.1'
+    trustedProxy: '127.0.0.1',
+    useXssProtection: true,
+    sanitizeOptions: {allowedTags: [], allowedAttributes: {}}
 });
 ```
 
@@ -237,7 +259,6 @@ let serverResult = appServerFactory.createAppServer({
 - `enableServeHome(app, callback)` - Enables homepage serving
 - `serveStatics(app, staticPath)` - Serves static files
 - `serveStaticsPath(app, route, staticPath)` - Serves static files on specific route
-- `validateInput(input, type)` - Validates input against predefined patterns
 - `enableCSP(cspOptions)` - Enables Content Security Policy
 - `listen(port)` - Starts server listening
 - `close()` - Gracefully closes server
@@ -263,6 +284,13 @@ let serverResult = appServerFactory.createAppServer({
 - `generateSecureFilename(originalName)` - Generates cryptographically secure filename
 - `quarantineFile(path, reason)` - Moves file to quarantine folder
 - `createTempFile(prefix, extension)` - Creates a temporary file path
+- `moveFile(from, to)` - Moves file to new location
+- `getFileSize(path)` - Gets file size in bytes
+- `compareFiles(file1, file2)` - Compares file contents
+- `getRelativePath(from, to)` - Calculates relative path
+- `walkDirectory(path, callback)` - Recursively processes directory tree
+- `getDirectorySize(path)` - Calculates total directory size
+- `emptyDirectory(path)` - Removes all contents from directory
 
 ### Encryptor Methods
 
@@ -284,6 +312,7 @@ let serverResult = appServerFactory.createAppServer({
 - `validateFilenameSecurity(filename)` - Validates filename for security
 - `validateFile(file, allowedType, callback)` - Validates a file during upload
 - `validateFileContents(file, allowedType)` - Validates file content after upload
+- `convertToRegex(key)` - Converts MIME type patterns to regex
 
 ## Security Features
 
