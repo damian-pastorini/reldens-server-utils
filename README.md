@@ -9,7 +9,6 @@ A Node.js server toolkit providing secure application server creation, file hand
 ### AppServerFactory
 - Complete Express.js server configuration with modular security
 - HTTPS/HTTP server creation with SSL certificate management
-- HTTP/2 support via spdy with automatic HTTP/1.1 fallback
 - Optimized static asset caching for CSS, JS, fonts, and images
 - SNI (Server Name Indication) support for multi-domain hosting
 - Virtual host management with domain mapping
@@ -101,14 +100,13 @@ if(serverResult){
 }
 ```
 
-### HTTP/2 Server with Optimized Caching
+### HTTPS Server with Optimized Caching
 
 ```javascript
 let appServerFactory = new AppServerFactory();
 let serverResult = appServerFactory.createAppServer({
     port: 443,
     useHttps: true,
-    useHttp2: true,
     keyPath: '/ssl/server.key',
     certPath: '/ssl/server.crt',
     autoListen: true
@@ -131,7 +129,6 @@ appServerFactory.cacheConfig = {
 };
 let serverResult = appServerFactory.createAppServer({
     useHttps: true,
-    useHttp2: true
 });
 ```
 
@@ -229,7 +226,6 @@ appServerFactory.addDomain({
 
 let serverResult = appServerFactory.createAppServer({
     useHttps: true,
-    useHttp2: true,
     useVirtualHosts: true,
     keyPath: '/ssl/default.key',
     certPath: '/ssl/default.crt',
@@ -364,9 +360,6 @@ Configurable rate limiting with development mode detection for appropriate thres
 
 ### HTTPS Support
 Full SSL/TLS support with SNI for multi-domain hosting and automatic certificate management.
-
-### HTTP/2 Support
-HTTP/2 support via spdy with multiplexing for improved performance and automatic HTTP/1.1 fallback for older clients.
 
 ### Input Validation
 Built-in validators for common input types including email, username, strong passwords, alphanumeric strings, and IP addresses.
