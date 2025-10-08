@@ -281,6 +281,75 @@ let serverResult = appServerFactory.createAppServer({
 });
 ```
 
+### External Domains Configuration
+
+When using `developmentExternalDomains` to configure CSP policies, keys can be specified in either kebab-case or camelCase format. The system automatically converts kebab-case keys to the appropriate camelCase format:
+
+```javascript
+let serverResult = appServerFactory.createAppServer({
+    developmentExternalDomains: {
+        // Both formats work - choose whichever you prefer
+        'scriptSrc': ['https://cdn.example.com'],           // camelCase
+        'script-src': ['https://platform-api.example.com'], // kebab-case (auto-converted)
+        'styleSrc': ['https://fonts.googleapis.com'],       // camelCase
+        'font-src': ['https://fonts.gstatic.com']           // kebab-case (auto-converted)
+    }
+});
+```
+
+The system automatically adds these domains to both the base directive and the corresponding `-elem` variant (e.g., `scriptSrc` and `scriptSrcElem`).
+
+### Helmet CSP Configuration Options
+
+The security configurer provides flexible CSP directive handling with merge or override behavior:
+
+#### Merging Directives (Default)
+
+By default, custom CSP directives are merged with the security defaults, allowing you to add additional sources without redefining all directives:
+
+```javascript
+let serverResult = appServerFactory.createAppServer({
+    useHelmet: true,
+    helmetConfig: {
+        contentSecurityPolicy: {
+            directives: {
+                // These will be ADDED to the default directives
+                scriptSrc: ['https://analytics.example.com'],
+                styleSrc: ['https://cdn.example.com']
+            }
+        }
+    }
+});
+
+// Result: default directives + your additional sources
+```
+
+#### Overriding Directives
+
+Set `overrideDirectives: true` to completely replace the default directives with your custom configuration:
+
+```javascript
+let serverResult = appServerFactory.createAppServer({
+    useHelmet: true,
+    helmetConfig: {
+        contentSecurityPolicy: {
+            overrideDirectives: true,  // Replace defaults entirely
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", "https://trusted-cdn.com"],
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                imgSrc: ["'self'", "data:", "https:"],
+                fontSrc: ["'self'"],
+                connectSrc: ["'self'"],
+                frameAncestors: ["'none'"],
+                baseUri: ["'self'"],
+                formAction: ["'self'"]
+            }
+        }
+    }
+});
+```
+
 ## API Reference
 
 ### AppServerFactory Methods
