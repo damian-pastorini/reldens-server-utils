@@ -1,6 +1,6 @@
 # Reldens - Server Utils
 
-A Node.js server toolkit providing secure application server creation, file handling, encryption, and file upload capabilities for production-ready applications with modular security configurations.
+A Node.js server toolkit providing secure application server creation, HTTP/2 CDN support, file handling, encryption, and file upload capabilities for production-ready applications with modular security configurations.
 
 [![Reldens - GitHub - Release](https://www.dwdeveloper.com/media/reldens/reldens-mmorpg-platform.png)](https://github.com/damian-pastorini/reldens)
 
@@ -9,6 +9,7 @@ A Node.js server toolkit providing secure application server creation, file hand
 ### AppServerFactory
 - Complete Express.js server configuration with modular security
 - HTTPS/HTTP server creation with SSL certificate management
+- HTTP/2 CDN server with optimized static asset delivery
 - Optimized static asset caching for CSS, JS, fonts, and images
 - SNI (Server Name Indication) support for multi-domain hosting
 - Virtual host management with domain mapping
@@ -23,6 +24,18 @@ A Node.js server toolkit providing secure application server creation, file hand
 - Static file serving with security headers
 - Compression middleware with smart filtering
 - Input validation utilities
+
+### Http2CdnServer
+- Dedicated HTTP/2 server for static asset delivery
+- Optimized for serving CSS, JavaScript, images, and fonts
+- Dynamic CORS origin validation with regex pattern support
+- Configurable cache headers per file extension
+- Comprehensive MIME type detection
+- HTTP/1.1 fallback support
+- Security headers (X-Content-Type-Options, X-Frame-Options, Vary)
+- Standalone or integrated with AppServerFactory
+- Multiple static path support
+- Separate SSL certificate support from main server
 
 #### Modular Security Components
 The AppServerFactory now uses specialized security configurers:
@@ -97,6 +110,65 @@ let serverResult = appServerFactory.createAppServer({
 if(serverResult){
     let { app, appServer } = serverResult;
     console.log('Server running on port 3000');
+}
+```
+
+### HTTP/2 CDN Server with Express
+
+Serve your main application through Express on port 443, and static assets through HTTP/2 CDN on port 8443:
+
+```javascript
+let appServerFactory = new AppServerFactory();
+let serverResult = appServerFactory.createAppServer({
+    port: 443,
+    useHttps: true,
+    keyPath: '/ssl/main-server.key',
+    certPath: '/ssl/main-server.crt',
+    http2CdnEnabled: true,
+    http2CdnPort: 8443,
+    http2CdnKeyPath: '/ssl/cdn-server.key',
+    http2CdnCertPath: '/ssl/cdn-server.crt',
+    http2CdnStaticPaths: ['/var/www/public'],
+    http2CdnCorsOrigins: [
+        'https://example.com',
+        /^https:\/\/(www\.)?example\.(com|net)$/
+    ],
+    autoListen: true
+});
+
+if(serverResult){
+    let { app, appServer, http2CdnServer } = serverResult;
+    console.log('Express server on port 443');
+    console.log('HTTP/2 CDN server on port 8443');
+}
+```
+
+**Note:** If `http2CdnKeyPath` and `http2CdnCertPath` are not specified, the CDN server will use the same certificates as the main server (`keyPath` and `certPath`).
+
+Browser usage:
+```html
+<link rel="stylesheet" href="https://cdn.example.com:8443/css/style.css">
+<script src="https://cdn.example.com:8443/js/app.js"></script>
+```
+
+### Standalone HTTP/2 CDN Server
+
+```javascript
+const { Http2CdnServer } = require('@reldens/server-utils');
+
+let cdnServer = new Http2CdnServer();
+cdnServer.port = 8443;
+cdnServer.keyPath = '/ssl/cdn.key';
+cdnServer.certPath = '/ssl/cdn.crt';
+cdnServer.staticPaths = ['/var/www/public', '/var/www/assets'];
+cdnServer.corsOrigins = [
+    'https://main-site.com',
+    /^https:\/\/(new\.)?((site1|site2)\.(com|net))$/
+];
+
+if(cdnServer.create()){
+    cdnServer.listen();
+    console.log('HTTP/2 CDN running on port 8443');
 }
 ```
 
@@ -205,6 +277,56 @@ app.post('/upload', uploader, (req, res) => {
 ```
 
 ## Advanced Configuration
+
+### HTTP/2 CDN with Separate Certificates
+
+Configure separate SSL certificates for your CDN server:
+
+```javascript
+let appServerFactory = new AppServerFactory();
+let serverResult = appServerFactory.createAppServer({
+    useHttps: true,
+    port: 443,
+    keyPath: '/ssl/app-server.key',
+    certPath: '/ssl/app-server.crt',
+    http2CdnEnabled: true,
+    http2CdnPort: 8443,
+    http2CdnKeyPath: '/ssl/cdn-server.key',
+    http2CdnCertPath: '/ssl/cdn-server.crt',
+    http2CdnHttpsChain: '/ssl/cdn-chain.pem',
+    http2CdnStaticPaths: ['/var/www/public'],
+    http2CdnCorsOrigins: [
+        'https://main-site.com',
+        'https://app.main-site.com',
+        /^https:\/\/(new\.)?main-site\.(com|net)$/
+    ],
+    http2CdnCacheConfig: {
+        '.css': 31536000,
+        '.js': 31536000,
+        '.woff2': 31536000,
+        '.png': 2592000
+    }
+});
+```
+
+### HTTP/2 CDN with Multiple Origins
+
+The HTTP/2 CDN server supports multiple origin validation methods:
+
+```javascript
+let appServerFactory = new AppServerFactory();
+let serverResult = appServerFactory.createAppServer({
+    http2CdnEnabled: true,
+    http2CdnPort: 8443,
+    http2CdnStaticPaths: ['/var/www/public'],
+    http2CdnCorsOrigins: [
+        'https://main-site.com',
+        'https://app.main-site.com',
+        /^https:\/\/(new\.)?main-site\.(com|net)$/,
+        /^https:\/\/(app|admin)\.secondary-site\.com$/
+    ]
+});
+```
 
 ### HTTPS Server with Multiple Domains
 
@@ -365,6 +487,42 @@ let serverResult = appServerFactory.createAppServer({
 - `listen(port)` - Starts server listening
 - `close()` - Gracefully closes server
 
+### AppServerFactory HTTP/2 CDN Configuration
+
+- `http2CdnEnabled` - Enable HTTP/2 CDN server (default: false)
+- `http2CdnPort` - HTTP/2 CDN port (default: 8443)
+- `http2CdnKeyPath` - CDN SSL private key path (falls back to `keyPath`)
+- `http2CdnCertPath` - CDN SSL certificate path (falls back to `certPath`)
+- `http2CdnHttpsChain` - CDN certificate chain path (falls back to `httpsChain`)
+- `http2CdnStaticPaths` - Paths to serve from CDN (default: [])
+- `http2CdnCorsOrigins` - Allowed CORS origins for CDN (default: [])
+- `http2CdnCorsAllowAll` - Allow all origins (default: false)
+- `http2CdnMimeTypes` - Override default MIME types (default: {})
+- `http2CdnCacheConfig` - Override default cache config (default: {})
+
+### Http2CdnServer Methods
+
+- `create()` - Creates HTTP/2 secure server
+- `listen()` - Starts listening on configured port
+- `close()` - Gracefully closes HTTP/2 server
+
+### Http2CdnServer Configuration
+
+- `port` - Server port (default: 8443)
+- `keyPath` - SSL private key path
+- `certPath` - SSL certificate path
+- `httpsChain` - Certificate chain path (optional)
+- `staticPaths` - Array of static file directories
+- `cacheConfig` - Cache max-age per extension
+- `allowHTTP1` - Allow HTTP/1.1 fallback (default: true)
+- `corsOrigins` - Array of allowed origins (strings or RegExp)
+- `corsAllowAll` - Allow all origins (default: false)
+- `corsMethods` - Allowed HTTP methods (default: 'GET, OPTIONS')
+- `corsHeaders` - Allowed request headers (default: 'Content-Type')
+- `securityHeaders` - Custom security headers
+- `varyHeader` - Vary header value (default: 'Accept-Encoding, Origin')
+- `mimeTypes` - MIME type mappings
+
 ### FileHandler Methods
 
 - `exists(path)` - Checks if file or folder exists
@@ -386,11 +544,11 @@ let serverResult = appServerFactory.createAppServer({
 - `generateSecureFilename(originalName)` - Generates cryptographically secure filename
 - `quarantineFile(path, reason)` - Moves file to quarantine folder
 - `createTempFile(prefix, extension)` - Creates a temporary file path
-- `moveFile(from, to)` - Moves file to new location
+- `moveFile(from, to)` - Moves a file to new location
 - `getFileSize(path)` - Gets file size in bytes
 - `compareFiles(file1, file2)` - Compares file contents
-- `getRelativePath(from, to)` - Calculates relative path
-- `walkDirectory(path, callback)` - Recursively processes directory tree
+- `getRelativePath(from, to)` - Calculates a relative path
+- `walkDirectory(path, callback)` - Recursively processes a directory tree
 - `getDirectorySize(path)` - Calculates total directory size
 - `emptyDirectory(path)` - Removes all contents from directory
 
@@ -429,6 +587,9 @@ Configurable rate limiting with development mode detection for appropriate thres
 
 ### HTTPS Support
 Full SSL/TLS support with SNI for multi-domain hosting and automatic certificate management.
+
+### HTTP/2 CDN Security
+The HTTP/2 CDN server includes security headers, CORS validation with pattern matching, and query string stripping to prevent cache poisoning.
 
 ### Input Validation
 Built-in validators for common input types including email, username, strong passwords, alphanumeric strings, and IP addresses.
