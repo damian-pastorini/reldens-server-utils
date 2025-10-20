@@ -16,6 +16,7 @@ A Node.js server toolkit providing secure application server creation, HTTP/2 CD
 - Development mode detection with appropriate configurations
 - CORS configuration with flexible origin management
 - Rate limiting with customizable thresholds
+- Reverse proxy support for routing multiple domains to backend servers
 - Security headers and XSS protection
 - Helmet integration for enhanced security
 - Protocol enforcement (HTTP to HTTPS redirection)
@@ -44,6 +45,7 @@ The AppServerFactory now uses specialized security configurers:
 - **DevelopmentModeDetector** - Automatic development environment detection
 - **ProtocolEnforcer** - Protocol redirection with development mode awareness
 - **RateLimitConfigurer** - Global and endpoint-specific rate limiting
+- **ReverseProxyConfigurer** - Domain-based reverse proxy with WebSocket support
 - **SecurityConfigurer** - Helmet integration with CSP management and XSS protection
 
 ### FileHandler
@@ -472,6 +474,68 @@ let serverResult = appServerFactory.createAppServer({
 });
 ```
 
+### Reverse Proxy Configuration
+
+Route multiple domains to different backend servers through a single SSL-enabled entry point:
+
+```javascript
+let appServerFactory = new AppServerFactory();
+
+let serverResult = appServerFactory.createAppServer({
+    port: 443,
+    useHttps: true,
+    useVirtualHosts: true,
+    keyPath: '/ssl/server.key',
+    certPath: '/ssl/server.crt',
+    reverseProxyEnabled: true,
+    reverseProxyRules: [
+        {
+            hostname: 'demo.reldens.com',
+            target: 'https://localhost:8444',
+            pathPrefix: '/',
+            websocket: true,
+            secure: false
+        },
+        {
+            hostname: 'api.example.com',
+            target: 'https://localhost:8445',
+            pathPrefix: '/',
+            websocket: false
+        }
+    ],
+    autoListen: true
+});
+```
+
+#### Reverse Proxy Features
+
+- Multiple backend routing with independent configuration per domain
+- WebSocket support for real-time applications
+- SSL termination at entry point
+- Header preservation (X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host)
+- Virtual host integration
+- Path-based routing
+- Graceful error handling
+
+#### Rule Properties
+
+- `hostname` (string, required) - Domain to match
+- `target` (string, required) - Backend URL
+- `pathPrefix` (string, optional) - Path prefix, default: '/'
+- `websocket` (boolean, optional) - Enable WebSocket, default: true
+- `changeOrigin` (boolean, optional) - Change origin header, default: true
+- `secure` (boolean, optional) - Verify SSL certificates, default: false
+- `logLevel` (string, optional) - 'debug', 'info', 'warn', 'error', 'silent'
+
+#### Example: Multiple Game Servers
+
+```javascript
+reverseProxyRules: [
+    { hostname: 'demo.game.com', target: 'https://localhost:8444', websocket: true },
+    { hostname: 'staging.game.com', target: 'https://localhost:8445', websocket: true }
+]
+```
+
 ## API Reference
 
 ### AppServerFactory Methods
@@ -499,6 +563,11 @@ let serverResult = appServerFactory.createAppServer({
 - `http2CdnCorsAllowAll` - Allow all origins (default: false)
 - `http2CdnMimeTypes` - Override default MIME types (default: {})
 - `http2CdnCacheConfig` - Override default cache config (default: {})
+
+### AppServerFactory Reverse Proxy Configuration
+
+- `reverseProxyEnabled` - Enable reverse proxy (default: false)
+- `reverseProxyRules` - Array of proxy rules (default: [])
 
 ### Http2CdnServer Methods
 
