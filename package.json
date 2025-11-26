@@ -1,7 +1,7 @@
 {
     "name": "@reldens/server-utils",
     "scope": "@reldens",
-    "version": "0.40.0",
+    "version": "0.41.0",
     "description": "Reldens - Server Utils",
     "author": "Damian A. Pastorini",
     "license": "MIT",
@@ -36,7 +36,7 @@
         "url": "https://github.com/damian-pastorini/reldens-server-utils/issues"
     },
     "dependencies": {
-        "body-parser": "2.2.0",
+        "body-parser": "2.2.1",
         "compression": "1.8.1",
         "cors": "2.8.5",
         "express": "4.21.2",
