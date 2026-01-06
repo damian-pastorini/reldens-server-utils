@@ -67,6 +67,8 @@ npm test
   - `appendToFile(filePath, content)` - Append to file
   - `prependToFile(filePath, content)` - Prepend to file
   - `replaceInFile(filePath, searchValue, replaceValue)` - Replace in file
+  - `createReadStream(filePath, options)` - Create readable stream for file
+  - `getFileModificationTime(filePath)` - Get file last modification time
 - All methods include built-in error handling, no need for try/catch
 - DO NOT use FileHandler.exists to validate other FileHandler methods
 - DO NOT enclose FileHandler methods in try/catch blocks
@@ -79,6 +81,7 @@ npm test
   - HTTP/2 CDN server integration
   - Reverse proxy with WebSocket support
   - Development mode detection and configuration
+  - Custom error handling via onError callback
 - Security configurers (modular):
   - `DevelopmentModeDetector` - Auto-detect development environment
   - `ProtocolEnforcer` - HTTP/HTTPS protocol enforcement
@@ -86,6 +89,8 @@ npm test
   - `CorsConfigurer` - CORS with dynamic origin validation
   - `RateLimitConfigurer` - Global and endpoint-specific rate limiting
   - `ReverseProxyConfigurer` - Domain-based reverse proxy
+- Configuration properties:
+  - `onError` - Custom error handler callback for server errors
 - Methods:
   - `createAppServer(config)` - Create and configure server
   - `addDomain(domainConfig)` - Add virtual host domain
@@ -146,14 +151,29 @@ npm test
   - HTTP/1.1 fallback support
   - Security headers (X-Content-Type-Options, X-Frame-Options, Vary)
   - Query string stripping for cache optimization
+  - Comprehensive error handling (server, TLS, session, stream errors)
+  - Custom error handler callback support
+- Configuration properties:
+  - `onError` - Custom error handler callback for server errors
 - Methods:
   - `create()` - Create HTTP/2 secure server
   - `listen()` - Start listening on configured port
   - `close()` - Gracefully close server
   - `handleStream(stream, headers)` - Handle HTTP/2 stream
+  - `handleHttp1Request(req, res)` - Handle HTTP/1.1 fallback requests
   - `resolveFilePath(requestPath)` - Resolve file path from request
+  - `setupEventHandlers()` - Configure server error event handlers
 
 ### Utility Classes
+
+**ServerErrorHandler** (`lib/server-error-handler.js`):
+- Centralized error handling for all server components
+- Static class with standardized error handling interface
+- Methods:
+  - `handleError(onErrorCallback, instanceName, instance, key, error, context)` - Handle and delegate errors
+- Used by Http2CdnServer, AppServerFactory, and ReverseProxyConfigurer
+- Supports custom error callbacks for application-specific error processing
+- Provides structured error context with instance details and metadata
 
 **ServerDefaultConfigurations** (`lib/server-default-configurations.js`):
 - Static class providing default configurations
@@ -220,10 +240,17 @@ npm test
 - SSL termination
 - Header preservation (X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host)
 - Virtual host integration
-- Graceful error handling (502 Bad Gateway, 504 Gateway Timeout)
-- `setup(app, config)` - Setup reverse proxy
-- `createProxyMiddleware(rule)` - Create proxy middleware for rule
-- `handleProxyError(err, req, res)` - Handle proxy errors
+- Comprehensive error handling with proper HTTP status codes:
+  - 502 Bad Gateway for ECONNREFUSED errors
+  - 504 Gateway Timeout for ETIMEDOUT/ESOCKETTIMEDOUT errors
+  - 500 Internal Server Error for other proxy errors
+- Custom error callback support via ServerErrorHandler
+- Methods:
+  - `setup(app, config)` - Setup reverse proxy
+  - `createProxyMiddleware(rule)` - Create proxy middleware for rule
+  - `handleProxyError(err, req, res)` - Handle proxy errors with status codes
+  - `validateProxyRule(rule)` - Validate proxy rule configuration
+  - `extractHostname(req)` - Extract hostname from request
 
 ## Important Notes
 

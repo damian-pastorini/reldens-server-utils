@@ -25,6 +25,7 @@ A Node.js server toolkit providing secure application server creation, HTTP/2 CD
 - Static file serving with security headers
 - Compression middleware with smart filtering
 - Input validation utilities
+- Custom error handling with callback support
 
 ### Http2CdnServer
 - Dedicated HTTP/2 server for static asset delivery
@@ -37,6 +38,8 @@ A Node.js server toolkit providing secure application server creation, HTTP/2 CD
 - Standalone or integrated with AppServerFactory
 - Multiple static path support
 - Separate SSL certificate support from main server
+- Comprehensive error handling (server, TLS, session, stream errors)
+- Custom error handler callback support
 
 #### Modular Security Components
 The AppServerFactory now uses specialized security configurers:
@@ -47,6 +50,7 @@ The AppServerFactory now uses specialized security configurers:
 - **RateLimitConfigurer** - Global and endpoint-specific rate limiting
 - **ReverseProxyConfigurer** - Domain-based reverse proxy with WebSocket support
 - **SecurityConfigurer** - Helmet integration with CSP management and XSS protection
+- **ServerErrorHandler** - Centralized error handling with custom callback support
 
 ### FileHandler
 - Secure file system operations with path validation
@@ -63,6 +67,8 @@ The AppServerFactory now uses specialized security configurers:
 - Directory walking with callback processing
 - File comparison and relative path calculations
 - Comprehensive error handling with detailed context
+- Read stream creation for efficient file streaming
+- File modification time retrieval
 
 ### Encryptor
 - Password hashing using PBKDF2 with configurable iterations
@@ -174,6 +180,34 @@ if(cdnServer.create()){
 }
 ```
 
+### Custom Error Handling
+
+Configure custom error handlers for server errors:
+
+```javascript
+let appServerFactory = new AppServerFactory();
+
+appServerFactory.onError = (errorData) => {
+    console.error('Server error:', errorData.key);
+    console.error('Error details:', errorData.error);
+    console.error('Context:', errorData);
+};
+
+let serverResult = appServerFactory.createAppServer({
+    port: 443,
+    useHttps: true,
+    http2CdnEnabled: true,
+    autoListen: true
+});
+```
+
+The `onError` callback receives structured error data:
+- `instanceName` - Name of the component (e.g., 'http2CdnServer', 'appServerFactory')
+- `instance` - Reference to the component instance
+- `key` - Error type identifier (e.g., 'server-error', 'tls-client-error', 'proxy-error')
+- `error` - The actual error object
+- `...context` - Additional context data (port, path, hostname, etc.)
+
 ### HTTPS Server with Optimized Caching
 
 ```javascript
@@ -225,6 +259,18 @@ if(FileHandler.createFolder('/path/to/new/folder')){
 // Generate a secure filename
 let secureFilename = FileHandler.generateSecureFilename('user-upload.jpg');
 console.log('Secure filename:', secureFilename);
+
+// Create a read stream for efficient file handling
+let stream = FileHandler.createReadStream('/path/to/large-file.txt');
+if(stream){
+    stream.pipe(response);
+}
+
+// Get file modification time
+let modTime = FileHandler.getFileModificationTime('/path/to/file.txt');
+if(modTime){
+    console.log('Last modified:', modTime);
+}
 ```
 
 ### Password Encryption
@@ -515,7 +561,10 @@ let serverResult = appServerFactory.createAppServer({
 - Header preservation (X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host)
 - Virtual host integration
 - Path-based routing
-- Graceful error handling
+- Comprehensive error handling with proper HTTP status codes:
+  - 502 Bad Gateway for connection refused errors
+  - 504 Gateway Timeout for timeout errors
+  - 500 Internal Server Error for other proxy errors
 
 #### Rule Properties
 
@@ -569,6 +618,15 @@ reverseProxyRules: [
 - `reverseProxyEnabled` - Enable reverse proxy (default: false)
 - `reverseProxyRules` - Array of proxy rules (default: [])
 
+### AppServerFactory Error Handling
+
+- `onError` - Custom error handler callback function receiving error data:
+  - `instanceName` - Component name (e.g., 'appServerFactory', 'http2CdnServer')
+  - `instance` - Component instance reference
+  - `key` - Error type identifier (e.g., 'server-error', 'virtual-host-error')
+  - `error` - The error object
+  - Additional context data (port, hostname, path, etc.)
+
 ### Http2CdnServer Methods
 
 - `create()` - Creates HTTP/2 secure server
@@ -591,6 +649,7 @@ reverseProxyRules: [
 - `securityHeaders` - Custom security headers
 - `varyHeader` - Vary header value (default: 'Accept-Encoding, Origin')
 - `mimeTypes` - MIME type mappings
+- `onError` - Custom error handler callback
 
 ### FileHandler Methods
 
@@ -620,6 +679,8 @@ reverseProxyRules: [
 - `walkDirectory(path, callback)` - Recursively processes a directory tree
 - `getDirectorySize(path)` - Calculates total directory size
 - `emptyDirectory(path)` - Removes all contents from directory
+- `createReadStream(path, options)` - Creates readable stream for file
+- `getFileModificationTime(path)` - Gets file last modification time
 
 ### Encryptor Methods
 
@@ -642,6 +703,16 @@ reverseProxyRules: [
 - `validateFile(file, allowedType, callback)` - Validates a file during upload
 - `validateFileContents(file, allowedType)` - Validates file content after upload
 - `convertToRegex(key)` - Converts MIME type patterns to regex
+
+### ServerErrorHandler Methods
+
+- `handleError(onErrorCallback, instanceName, instance, key, error, context)` - Static method for centralized error handling
+  - `onErrorCallback` - Custom error handler function (optional)
+  - `instanceName` - Name of the component ('http2CdnServer', 'appServerFactory', etc.)
+  - `instance` - Reference to the component instance
+  - `key` - Error type identifier
+  - `error` - The error object
+  - `context` - Additional context object (port, hostname, path, etc.)
 
 ## Security Features
 
@@ -668,7 +739,15 @@ Industry-standard encryption using PBKDF2 for passwords, AES-256-GCM for data en
 
 ## Error Handling
 
-All methods include comprehensive error handling with detailed error objects containing context information. Errors are logged appropriately and never expose sensitive system information.
+All server components include comprehensive error handling with centralized error management through the ServerErrorHandler class. Custom error handlers can be configured via the `onError` callback to process errors according to application requirements. Errors are logged appropriately and never expose sensitive system information.
+
+Error handling features:
+- Centralized error management with ServerErrorHandler
+- Custom error callback support across all components
+- Structured error context with instance details and metadata
+- Graceful HTTP status codes for proxy errors (502, 504, 500)
+- TLS and session error handling for HTTP/2 servers
+- Virtual host and SNI certificate error handling
 
 ---
 
