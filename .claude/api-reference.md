@@ -77,6 +77,7 @@ Creates Express app servers with modular security components. Supports HTTP, HTT
 - Lifecycle event dispatching
 
 **Configuration Properties:**
+- `http2CdnDomains` - Array of domain configurations for HTTP/2 CDN multi-certificate SNI (optional)
 - `onError` - Custom error handler callback for server errors
 - `onRequestSuccess` - Callback for successful requests
 - `onRequestError` - Callback for failed requests
@@ -84,8 +85,11 @@ Creates Express app servers with modular security components. Supports HTTP, HTT
 
 **Methods:**
 - `createAppServer(config)` - Create and configure server
+- `createHttp2CdnServer()` - Create HTTP/2 CDN server with optional multi-cert SNI
 - `addDomain(domainConfig)` - Add virtual host domain
 - `addDevelopmentDomain(domain)` - Add development domain
+- `dispatch(eventName, eventData)` - Dispatch lifecycle event (wrapper for EventDispatcher)
+- `handleError(errorType, error, context)` - Handle and log error (wrapper for ServerErrorHandler)
 - `enableServeHome(app, callback)` - Enable homepage serving
 - `serveStatics(app, staticPath)` - Serve static files
 - `enableCSP(cspOptions)` - Enable Content Security Policy
@@ -157,6 +161,7 @@ File upload handling with Multer.
 HTTP/2 secure server for CDN-like static file serving.
 
 **Features:**
+- Multi-certificate SNI support for multiple domains
 - Optimized for CSS, JavaScript, images, and fonts
 - Dynamic CORS origin validation with regex pattern support
 - Configurable cache headers per file extension
@@ -167,19 +172,37 @@ HTTP/2 secure server for CDN-like static file serving.
 - Comprehensive error handling (server, TLS, session, stream errors)
 
 **Configuration Properties:**
+- `domains` - Array of domain configurations for multi-certificate SNI (optional)
+- `keyPath` - Path to SSL key file (backward compatibility, single cert mode)
+- `certPath` - Path to SSL certificate file (backward compatibility, single cert mode)
 - `onError` - Custom error handler callback for server errors
 - `onRequestSuccess` - Callback for successful requests
 - `onRequestError` - Callback for failed requests
 - `onEvent` - Callback for lifecycle events
 
+**Multi-Certificate Configuration Example:**
+```javascript
+domains: [
+    {hostname: 'cdn.domain1.com', keyPath: '/path/to/key1.pem', certPath: '/path/to/cert1.pem'},
+    {hostname: 'cdn.domain2.com', keyPath: '/path/to/key2.pem', certPath: '/path/to/cert2.pem'}
+]
+```
+
 **Methods:**
-- `create()` - Create HTTP/2 secure server
+- `create()` - Create HTTP/2 secure server with SNI support
 - `listen()` - Start listening on configured port
 - `close()` - Gracefully close server
+- `dispatch(eventName, eventData)` - Dispatch lifecycle event (wrapper for EventDispatcher)
+- `handleError(errorType, error, context)` - Handle and log error (wrapper for ServerErrorHandler)
 - `handleStream(stream, headers)` - Handle HTTP/2 stream
 - `handleHttp1Request(req, res)` - Handle HTTP/1.1 fallback requests
 - `resolveFilePath(requestPath)` - Resolve file path from request
 - `setupEventHandlers()` - Configure server error event handlers
+- `setupDomainConfiguration()` - Configure single or multi-certificate mode
+- `validateCertificates()` - Validate all domain certificates exist
+- `buildSniContexts()` - Build TLS contexts for each domain
+- `getSniCallback()` - Get SNI callback for certificate selection
+- `buildServerOptions()` - Build HTTP/2 server options with SNI support
 
 ## Utility Classes
 

@@ -39,7 +39,7 @@ See `.claude/api-reference.md` for complete API documentation of all classes and
 
 **UploaderFactory** - File upload handling with Multer and multi-level security validation.
 
-**Http2CdnServer** - HTTP/2 secure server for CDN-like static file serving with CORS, cache headers, and callback-based logging.
+**Http2CdnServer** - HTTP/2 secure server for CDN-like static file serving with multi-certificate SNI support, CORS, cache headers, and callback-based logging.
 
 ## Utility Classes Summary
 
