@@ -1,7 +1,7 @@
 {
     "name": "@reldens/server-utils",
     "scope": "@reldens",
-    "version": "0.55.0",
+    "version": "0.56.0",
     "description": "Reldens - Server Utils",
     "author": "Damian A. Pastorini",
     "license": "MIT",
@@ -40,7 +40,7 @@
         "compression": "1.8.1",
         "cors": "2.8.6",
         "express": "4.22.2",
-        "express-rate-limit": "8.6.0",
+        "express-rate-limit": "8.6.2",
         "express-session": "1.19.0",
         "helmet": "8.3.0",
         "http-proxy-middleware": "3.0.7",
