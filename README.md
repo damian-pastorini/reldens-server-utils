@@ -442,9 +442,9 @@ let serverResult = appServerFactory.createAppServer({
             }
         }
     },
-    globalRateLimit: 100, // requests per window
+    globalRateLimit: 1, // switch, any truthy value installs the global limiter, it is NOT a requests count
     windowMs: 60000, // 1 minute
-    maxRequests: 30,
+    maxRequests: 30, // requests per window, this is the count
     trustedProxy: '127.0.0.1',
     useXssProtection: true,
     sanitizeOptions: {allowedTags: [], allowedAttributes: {}}
