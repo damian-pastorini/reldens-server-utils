@@ -1,7 +1,7 @@
 {
     "name": "@reldens/server-utils",
     "scope": "@reldens",
-    "version": "0.59.0",
+    "version": "0.60.0",
     "description": "Reldens - Server Utils",
     "author": "Damian A. Pastorini",
     "license": "MIT",
@@ -35,6 +35,9 @@
     "bugs": {
         "url": "https://github.com/damian-pastorini/reldens-server-utils/issues"
     },
+    "scripts": {
+        "test": "node tests/run-tests.js"
+    },
     "dependencies": {
         "body-parser": "2.3.0",
         "compression": "1.8.2",
@@ -45,6 +48,7 @@
         "helmet": "8.3.0",
         "http-proxy-middleware": "3.0.7",
         "multer": "2.4.0",
+        "proxy-addr": "2.0.8",
         "sanitize-html": "2.17.7"
     }
 }

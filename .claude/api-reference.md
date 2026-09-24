@@ -94,6 +94,7 @@ Creates Express app servers with modular security components. Supports HTTP, HTT
 - `serveStatics(app, staticPath)` - Serve static files
 - `enableCSP(cspOptions)` - Enable Content Security Policy
 - `listen(port)` - Start server listening
+- `attachClientAddressGuard(server)` - Attach a ClientAddressGuard to a server already bound by the application (for example the Colyseus transport server, after its listen), using the app trust proxy function and the IP lists
 - `close()` - Gracefully close server
 
 **Security Configurers:**
@@ -103,6 +104,8 @@ Creates Express app servers with modular security components. Supports HTTP, HTT
 - `CorsConfigurer` - CORS with dynamic origin validation
 - `RateLimitConfigurer` - Global and endpoint-specific rate limiting
 - `ReverseProxyConfigurer` - Domain-based reverse proxy
+- `IpListsConfigurer` - Allow and deny address lists
+- `ClientAddressGuard` - Client address resolution for the raw server requests
 
 ### Encryptor
 `lib/encryptor.js`
@@ -111,7 +114,8 @@ Singleton for cryptographic operations.
 
 **Password Hashing:**
 - `encryptPassword(password)` - Hash password with PBKDF2 (100k iterations, SHA-512)
-- `validatePassword(password, storedPassword)` - Validate password against hash
+- `validatePassword(password, storedPassword)` - Async, validate password against hash with the asynchronous pbkdf2 so it
+  does not block the event loop; always await it, an un-awaited Promise is truthy
 
 **Data Encryption:**
 - `encryptData(data, key)` - Encrypt data with AES-256-GCM
@@ -125,8 +129,8 @@ Singleton for cryptographic operations.
 **Hashing and Verification:**
 - `hashData(data, algorithm)` - Hash with SHA-256, SHA-512, or MD5
 - `generateHMAC(data, secret, algorithm)` - Generate HMAC signature
-- `verifyHMAC(data, secret, signature, algorithm)` - Verify HMAC signature
-- `constantTimeCompare(a, b)` - Constant-time string comparison
+- `verifyHMAC(data, secret, signature, algorithm)` - Verify HMAC signature through constantTimeCompare
+- `constantTimeCompare(a, b)` - Constant-time string comparison, returns false (never throws) when the byte lengths differ
 
 ### UploaderFactory
 `lib/uploader-factory.js`
@@ -354,3 +358,25 @@ Domain-based reverse proxy routing.
   - 504 Gateway Timeout for ETIMEDOUT/ESOCKETTIMEDOUT errors
   - 500 Internal Server Error for other proxy errors
 - Custom error callback support via ServerErrorHandler
+
+### IpListsConfigurer
+`ip-lists-configurer.js`
+
+Mutable allow and deny address lists consulted at request time.
+
+**Methods:**
+- `setLists(params)` - Replace the lists with `{enabled, allow, deny, forbiddenMessage}`
+- `isAllowed(address)` - Check an address, a value that is not an IP is denied only when there are allow entries
+- `setup(app)` - Install the Express middleware answering 403 for the denied `req.ip`
+
+Entries are addresses or CIDR ranges, a range needs an integer prefix up to 32 (IPv4) or 128 (IPv6), any other entry is ignored.
+
+### ClientAddressGuard
+`client-address-guard.js`
+
+Created by `AppServerFactory.attachClientAddressGuard(server)` for the requests that never reach the Express middleware.
+
+**Methods:**
+- `normalizeRequest(request)` - Resolve the address with proxy-addr and the trust proxy function, remove the X-Real-IP, X-Forwarded-For and X-Client-IP headers and set X-Real-IP to the resolved address
+- `attachToServer(server)` - Normalize every upgrade request first and wrap the current server request listeners
+- `handleRequest(request, response, requestListeners, server)` - Normalize the `/matchmake/` requests and answer 403 for the denied addresses, every other request reaches the wrapped listeners untouched

@@ -285,7 +285,7 @@ if(hashedPassword){
 }
 
 // Validate password
-let isValid = Encryptor.validatePassword('userPassword123', hashedPassword);
+let isValid = await Encryptor.validatePassword('userPassword123', hashedPassword);
 console.log('Password valid:', isValid);
 
 // Generate secure token
@@ -598,6 +598,7 @@ reverseProxyRules: [
 - `serveStaticsPath(app, route, staticPath)` - Serves static files on specific route
 - `enableCSP(cspOptions)` - Enables Content Security Policy
 - `listen(port)` - Starts server listening
+- `attachClientAddressGuard(server)` - Resolves the client address with the trusted proxy settings on the server upgrade and `/matchmake/` requests, and applies the IP lists to the matchmake requests
 - `close()` - Gracefully closes server
 
 ### AppServerFactory HTTP/2 CDN Configuration
@@ -685,7 +686,8 @@ reverseProxyRules: [
 ### Encryptor Methods
 
 - `encryptPassword(password)` - Hashes password with salt
-- `validatePassword(password, hash)` - Validates password against hash
+- `validatePassword(password, hash)` - Async, resolves true when the password matches the hash, it does not block the
+  event loop so it must be awaited
 - `generateSecretKey()` - Generates 256-bit secret key
 - `encryptData(data, key)` - Encrypts data with AES-256-GCM
 - `decryptData(encryptedData, key)` - Decrypts AES-256-GCM data
@@ -694,7 +696,7 @@ reverseProxyRules: [
 - `hashData(data, algorithm)` - Hashes data with specified algorithm
 - `generateHMAC(data, secret, algorithm)` - Generates HMAC signature
 - `verifyHMAC(data, secret, signature, algorithm)` - Verifies HMAC signature
-- `constantTimeCompare(a, b)` - Performs constant-time string comparison
+- `constantTimeCompare(a, b)` - Performs constant-time string comparison, false when the byte lengths differ
 
 ### UploaderFactory Methods
 

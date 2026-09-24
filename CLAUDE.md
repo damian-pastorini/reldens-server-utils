@@ -11,7 +11,7 @@
 ## Key Commands
 
 ```bash
-# Run tests (if configured)
+# Run the unit tests (tests/run-tests.js runs every class listed in its testClasses)
 npm test
 ```
 
@@ -60,6 +60,8 @@ Located in `lib/app-server-factory/`:
 - **CorsConfigurer** - CORS with dynamic origin validation
 - **RateLimitConfigurer** - Global and endpoint-specific rate limiting
 - **ReverseProxyConfigurer** - Domain-based reverse proxy with WebSocket support
+- **IpListsConfigurer** - Allow and deny address lists with validated CIDR entries
+- **ClientAddressGuard** - Resolves the client address with the trusted proxy settings on the raw server upgrade and matchmake requests
 
 ## Important Notes
 
@@ -88,3 +90,4 @@ Located in `lib/app-server-factory/`:
 - CSP management with Helmet integration
 - CORS with dynamic origin validation (supports strings and RegExp)
 - Rate limiting with development mode awareness
+- Client address resolved from the socket peer, the forwarding headers are only trusted through `trustedProxy`
