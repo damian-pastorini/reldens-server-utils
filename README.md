@@ -716,6 +716,23 @@ reverseProxyRules: [
   - `error` - The error object
   - `context` - Additional context object (port, hostname, path, etc.)
 
+### Shared Express Packages
+
+The package exports the Express packages it already depends on, so the projects that use it don't list them again:
+
+- `ExpressSession` - The `express-session` module (for example `ExpressSession.Store` for a custom session store)
+- `ExpressBasicAuth` - The `express-basic-auth` middleware factory
+
+```javascript
+const { ExpressSession, ExpressBasicAuth } = require('@reldens/server-utils');
+
+class MySessionStore extends ExpressSession.Store
+{
+}
+
+app.use('/monitor', ExpressBasicAuth({users: {admin: 'password'}, challenge: true}));
+```
+
 ## Security Features
 
 ### Path Traversal Protection

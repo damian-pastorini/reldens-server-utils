@@ -12,14 +12,20 @@ const { Http2CdnServer } = require('./lib/http2-cdn-server');
 const { ServerDefaultConfigurations } = require('./lib/server-default-configurations');
 const { ServerFactoryUtils } = require('./lib/server-factory-utils');
 const { ServerHeaders } = require('./lib/server-headers');
+const { PackageResolver } = require('./lib/package-resolver');
+const ExpressSession = require('express-session');
+const ExpressBasicAuth = require('express-basic-auth');
 
 module.exports = {
     FileHandler,
+    PackageResolver,
     AppServerFactory,
     UploaderFactory,
     Encryptor,
     Http2CdnServer,
     ServerDefaultConfigurations,
     ServerFactoryUtils,
-    ServerHeaders
+    ServerHeaders,
+    ExpressSession,
+    ExpressBasicAuth
 };

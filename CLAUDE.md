@@ -39,6 +39,8 @@ See `.claude/api-reference.md` for complete API documentation of all classes and
 
 ## Utility Classes Summary
 
+**PackageResolver** - Singleton that loads optional packages from the project `node_modules`, returns `false` and fills `error.message` (with the `npm install` command) when a package is missing; the caller logs it.
+
 **RequestLogger** - Express middleware for request logging that invokes callbacks based on status codes.
 
 **EventDispatcher** - Static utility for dispatching lifecycle events with structured event data.
@@ -50,6 +52,8 @@ See `.claude/api-reference.md` for complete API documentation of all classes and
 **ServerFactoryUtils** - Static utility methods for cache config, CORS validation, and URL manipulation.
 
 **ServerHeaders** - Centralized header management for HTTP/2, security, cache, and proxy headers.
+
+**ExpressSession / ExpressBasicAuth** - The `express-session` and `express-basic-auth` modules exported from `index.js`, so Reldens requires them from this package instead of listing them in its own package.json.
 
 ## Security Configurers Summary
 

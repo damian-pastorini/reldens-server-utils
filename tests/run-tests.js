@@ -7,13 +7,21 @@
 const { TestEncryptor } = require('./test-encryptor');
 const { TestIpListsConfigurer } = require('./test-ip-lists-configurer');
 const { TestClientAddressGuard } = require('./test-client-address-guard');
+const { TestPackageResolver } = require('./test-package-resolver');
+const { TestExpressModuleReexports } = require('./test-express-module-reexports');
 
 class RunTests
 {
 
     constructor()
     {
-        this.testClasses = [TestEncryptor, TestIpListsConfigurer, TestClientAddressGuard];
+        this.testClasses = [
+            TestEncryptor,
+            TestIpListsConfigurer,
+            TestClientAddressGuard,
+            TestPackageResolver,
+            TestExpressModuleReexports
+        ];
         this.testCount = 0;
         this.passedCount = 0;
     }

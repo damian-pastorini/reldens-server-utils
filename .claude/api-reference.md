@@ -210,6 +210,27 @@ domains: [
 
 ## Utility Classes
 
+### PackageResolver
+`lib/package-resolver.js`
+
+Singleton that loads a package from the project `node_modules`, used for the optional packages (storage drivers, mailer services) that are only available when the project installs them.
+
+**Methods:**
+- `loadPackage(packageName, projectPath)` - Return the loaded package, or `false` when it can not be resolved
+- `resolvePath(packageName, projectPath)` - Resolve the package path from `projectPath` (or the package name itself when no path is given)
+
+**Properties:**
+- `error` - `{message: ''}` on success, or `{message, packageName, projectPath, error}` after a failed load; the message includes the `npm install` command
+
+The class does not log, the caller decides the log level (`Logger.critical(PackageResolver.error.message)` for a required package, nothing for an availability check).
+
+### Shared Express Packages
+`index.js`
+
+The Express packages the package depends on are exported so the projects (Reldens) don't duplicate them in their package.json:
+- `ExpressSession` - The `express-session` module, used for `ExpressSession.Store` in the custom session stores
+- `ExpressBasicAuth` - The `express-basic-auth` middleware factory, used to protect the Colyseus monitor
+
 ### RequestLogger
 `lib/request-logger.js`
 
