@@ -9,6 +9,9 @@ const { TestIpListsConfigurer } = require('./test-ip-lists-configurer');
 const { TestClientAddressGuard } = require('./test-client-address-guard');
 const { TestPackageResolver } = require('./test-package-resolver');
 const { TestExpressModuleReexports } = require('./test-express-module-reexports');
+const { TestAppServerFactory } = require('./test-app-server-factory');
+const { TestAppServerFactoryRequestFilters } = require('./test-app-server-factory-request-filters');
+const { TestReverseProxyConfigurer } = require('./test-reverse-proxy-configurer');
 
 class RunTests
 {
@@ -20,7 +23,10 @@ class RunTests
             TestIpListsConfigurer,
             TestClientAddressGuard,
             TestPackageResolver,
-            TestExpressModuleReexports
+            TestExpressModuleReexports,
+            TestAppServerFactory,
+            TestAppServerFactoryRequestFilters,
+            TestReverseProxyConfigurer
         ];
         this.testCount = 0;
         this.passedCount = 0;
