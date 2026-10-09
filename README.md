@@ -556,9 +556,11 @@ let serverResult = appServerFactory.createAppServer({
 #### Reverse Proxy Features
 
 - Multiple backend routing with independent configuration per domain
-- WebSocket support for real-time applications
+- WebSocket support for real-time applications, the upgrades are only proxied for the rule hostname and path prefix and are checked against the IP lists
+- The proxied requests and upgrades count in the global rate limit (`globalRateLimit`) like the local requests
 - SSL termination at entry point
-- Header preservation (X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host)
+- Forwarding headers set by the proxy (X-Forwarded-For, X-Real-IP, X-Forwarded-Proto, X-Forwarded-Host) on every request and WebSocket upgrade, the values sent by a visitor are replaced so the client address can not be spoofed, only an upstream proxy trusted through `trustedProxy` can provide them
+- A target behind the proxy must trust it (for example `trustedProxy: 'loopback'`) to use the forwarded client address
 - Virtual host integration
 - Path-based routing
 - Comprehensive error handling with proper HTTP status codes:

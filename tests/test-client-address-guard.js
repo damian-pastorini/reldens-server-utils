@@ -6,7 +6,9 @@
 
 const { EventEmitter } = require('events');
 const { BaseTest } = require('./base-test');
+const proxyaddr = require('proxy-addr');
 const { AppServerFactory } = require('../lib/app-server-factory');
+const { Http2CdnServer } = require('../lib/http2-cdn-server');
 
 class TestClientAddressGuard extends BaseTest
 {
@@ -100,6 +102,30 @@ class TestClientAddressGuard extends BaseTest
             let response = this.emitRequest(guardedServer, 'request', '/game/', this.peerAddress);
             this.assert.strictEqual(response.statusCode, 200);
             this.assert.deepStrictEqual(guardedServer.receivedRequests.pop().headers, this.spoofedHeaders);
+        });
+    }
+
+    async testTheCdnRequestOriginIgnoresTheVisitorForwardingHeaders()
+    {
+        await this.test('the CDN request origin uses the peer address and Host for a peer that is not trusted', () => {
+            let headers = Object.assign({host: 'cdn.example.com', 'x-forwarded-host': 'other.example.com'}, this.spoofedHeaders);
+            this.assert.deepStrictEqual(
+                new Http2CdnServer().resolveRequestOrigin(headers, {remoteAddress: this.peerAddress}, 'host'),
+                {hostname: 'cdn.example.com', ip: this.peerAddress}
+            );
+        });
+    }
+
+    async testTheCdnRequestOriginKeepsTheTrustedProxyValues()
+    {
+        await this.test('the CDN request origin uses the forwarded address and host of a trusted proxy', () => {
+            let headers = Object.assign({host: 'cdn.example.com', 'x-forwarded-host': 'other.example.com'}, this.spoofedHeaders);
+            let cdnServer = new Http2CdnServer();
+            cdnServer.trustProxyFunction = proxyaddr.compile('loopback');
+            this.assert.deepStrictEqual(
+                cdnServer.resolveRequestOrigin(headers, {remoteAddress: this.proxyAddress}, 'host'),
+                {hostname: 'other.example.com', ip: this.spoofedHeaders['x-forwarded-for']}
+            );
         });
     }
 

@@ -95,3 +95,8 @@ Located in `lib/app-server-factory/`:
 - CORS with dynamic origin validation (supports strings and RegExp)
 - Rate limiting with development mode awareness
 - Client address resolved from the socket peer, the forwarding headers are only trusted through `trustedProxy`
+- The reverse proxy always replaces the visitor forwarding headers (X-Forwarded-For, X-Real-IP, X-Forwarded-Proto, X-Forwarded-Host, X-Client-IP) on requests and WebSocket upgrades before forwarding
+- The reverse proxy handles the server upgrades itself: only the rule hostname and path prefix are proxied and the IP lists are applied, the http-proxy-middleware `ws` option stays off because it proxies every upgrade of the server
+- The proxy middleware runs before the global rate limiter, so the proxied requests and upgrades are counted through `RateLimitConfigurer.isWithinGlobalLimit()` in the same store
+- No class reads X-Forwarded-For, X-Forwarded-Host or X-Forwarded-Proto directly: Express code uses `req.ip`, `req.hostname` and `req.protocol`, raw requests use proxy-addr with the app `trust proxy` function (`ClientAddressGuard`, `ReverseProxyConfigurer`, `Http2CdnServer.resolveRequestOrigin`)
+- This package is the security boundary of every Reldens server: never propose replacing, removing or reimplementing a component (for example the `http-proxy-middleware` reverse proxy) without first listing every attack the replacement takes over, and verify in the source whether an audit finding is reachable from our usage before proposing to replace a dependency

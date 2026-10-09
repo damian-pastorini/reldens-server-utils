@@ -213,7 +213,10 @@ class TestAppServerFactory extends BaseTest
                 onRequestError: (requestData) => errorRequests.push(requestData)
             });
             await this.localHttpExchange.runWithServer(appServerFactory.appServer, async (port) => {
-                await this.localHttpExchange.sendRequest(port, {path: this.builder.playersPath});
+                await this.localHttpExchange.sendRequest(port, {
+                    path: this.builder.playersPath,
+                    headers: {'X-Forwarded-For': '203.0.113.9', 'X-Forwarded-Host': this.builder.otherHostname}
+                });
                 await this.localHttpExchange.sendRequest(port, {path: this.missingPath});
             });
             let successRequest = successRequests.shift();
@@ -222,6 +225,7 @@ class TestAppServerFactory extends BaseTest
             this.assert.strictEqual(successRequest.path, this.builder.playersPath);
             this.assert.strictEqual(successRequest.statusCode, 200);
             this.assert.strictEqual(successRequest.ip, this.localHttpExchange.host);
+            this.assert.strictEqual(successRequest.hostname, this.localHttpExchange.host);
             this.assert.strictEqual(errorRequest.path, this.missingPath);
             this.assert.strictEqual(errorRequest.statusCode, 404);
         });

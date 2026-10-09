@@ -165,6 +165,7 @@ File upload handling with Multer.
 HTTP/2 secure server for CDN-like static file serving.
 
 **Features:**
+- `trustProxyFunction` (set by AppServerFactory from the app `trust proxy` setting) and `resolveRequestOrigin(headers, socket, hostHeaderName)`: the request callbacks receive the socket address and Host, the X-Forwarded-For and X-Forwarded-Host values only when the socket peer passes the trust function
 - Multi-certificate SNI support for multiple domains
 - Optimized for CSS, JavaScript, images, and fonts
 - Dynamic CORS origin validation with regex pattern support
@@ -242,6 +243,7 @@ Express middleware for request logging.
 Tracks request timing and invokes callbacks based on status code:
 - Status < 400: calls onRequestSuccess
 - Status >= 400: calls onRequestError
+- The logged `ip` and `hostname` are `req.ip` and `req.hostname`, so the forwarding headers are only used when they come from a proxy trusted through `trustedProxy`
 
 ### EventDispatcher
 `lib/event-dispatcher.js`
@@ -317,7 +319,7 @@ Checks NODE_ENV, domain patterns, and configured domains. Built-in patterns: loc
 Enforces HTTP/HTTPS protocol consistency.
 
 **Methods:**
-- `setup(app, config)` - Setup protocol enforcement middleware
+- `setup(app, config)` - Setup protocol enforcement middleware, the protocol is `req.protocol` (X-Forwarded-Proto only from a trusted proxy) and the development redirect is only skipped for a trusted proxy request
 
 Development mode awareness with automatic redirects when protocol doesn't match configuration.
 
@@ -352,7 +354,8 @@ Development domain support with automatic port variations. Credential support co
 Global and endpoint-specific rate limiting.
 
 **Methods:**
-- `setup(app, config)` - Setup global rate limiting
+- `setup(app, config)` - Setup global rate limiting, the limiter counts in `globalStore` (an express-rate-limit `MemoryStore`) with the `globalLimit` maximum
+- `isWithinGlobalLimit(clientAddress)` - Count a request that does not reach the global limiter middleware (proxied requests and upgrades) in the same store and key, true when the global limit is off
 - `createHomeLimiter()` - Create homepage-specific limiter
 
 Development mode multiplier for lenient limits. IP-based key generation option.
@@ -364,15 +367,25 @@ Domain-based reverse proxy routing.
 
 **Methods:**
 - `setup(app, config)` - Setup reverse proxy
-- `createProxyMiddleware(rule)` - Create proxy middleware for rule
-- `handleProxyError(err, req, res)` - Handle proxy errors with status codes
+- `createProxyMiddleware(rule)` - Create proxy middleware for rule, with the http-proxy-middleware `ws` option always off so it never subscribes to every server upgrade
+- `attachToServer(server)` - Register the server `upgrade` listener when a rule has WebSocket enabled, called by AppServerFactory after the server is created
+- `proxyRequest(proxyMiddleware, req, res, next)` - Count the proxied request in the global rate limit (429 over it), replace the forwarding headers and proxy it
+- `handleUpgrade(req, socket, head, server)` - Proxy an upgrade only for a matching WebSocket rule, answers 403 for an address denied by the IP lists, 429 over the global rate limit and 404 for no matching rule when no other `upgrade` listener exists, the client address is resolved with the app `trust proxy` function
+- `findUpgradeRule(req)` - Find the WebSocket rule for the upgrade hostname (with virtual hosts) and path prefix
+- `matchesPathPrefix(requestPath, pathPrefix)` - Match the path segments of a rule path prefix
+- `handleProxyError(error, req, res)` - Handle proxy errors with status codes, closes the socket of a failed WebSocket upgrade
 - `validateProxyRule(rule)` - Validate proxy rule configuration
-- `extractHostname(req)` - Extract hostname from request
+- `extractHostname(req)` - Extract hostname from the Host header, works on the raw upgrade requests
+- `resolveForwardedHeaders(req)` - Build X-Forwarded-For and X-Real-IP with the client address resolved by proxy-addr and the app `trust proxy` function, and X-Forwarded-Proto and X-Forwarded-Host from a trusted upstream proxy or from the connection
+- `applyForwardedHeaders(req)` - Replace the forwarding headers of a request before it is proxied and remove X-Client-IP, done on the request itself because httpxy skips its `proxyReq` event for requests with an `Expect` header
+- `applyUpgradeForwardedHeaders(proxyReq, req)` - Same replacement on the outgoing request of a WebSocket upgrade, through the `proxyReqWs` event
 
 **Features:**
-- WebSocket support
+- WebSocket support, upgrades are only proxied for the rule hostname and path prefix and pass the IP lists, from the first upgrade without a previous request
+- The proxied requests and upgrades count in the global rate limit (`globalRateLimit`, `maxRequests`, `windowMs`) with the same key as the local requests
 - SSL termination
-- Header preservation (X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host)
+- Forwarding headers always set by the proxy (X-Forwarded-For, X-Real-IP, X-Forwarded-Proto, X-Forwarded-Host) on requests and WebSocket upgrades, the values sent by a visitor are never forwarded, only the ones of an upstream proxy trusted through `trustedProxy`
+- A Reldens target behind the proxy must trust it (`trustedProxy: 'loopback'`, `RELDENS_EXPRESS_TRUSTED_PROXY`) to use the forwarded client address, otherwise every visitor is seen as the proxy address
 - Virtual host integration
 - Comprehensive error handling:
   - 502 Bad Gateway for ECONNREFUSED errors

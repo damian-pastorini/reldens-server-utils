@@ -93,7 +93,7 @@ class LocalHttpExchange
         return exchangeResponse;
     }
 
-    async sendUpgrade(port, path, headers)
+    createUpgradeRequest(port, path, headers)
     {
         let request = http.request({
             host: this.host,
@@ -104,7 +104,19 @@ class LocalHttpExchange
         });
         request.setTimeout(this.timeoutMs, () => request.destroy(new Error('Upgrade timed out: '+path)));
         request.end();
-        let upgradeArguments = await once(request, 'upgrade');
+        return request;
+    }
+
+    async sendRefusedUpgrade(port, path, headers)
+    {
+        let response = (await once(this.createUpgradeRequest(port, path, headers), 'response')).shift();
+        response.resume();
+        return response.statusCode;
+    }
+
+    async sendUpgrade(port, path, headers)
+    {
+        let upgradeArguments = await once(this.createUpgradeRequest(port, path, headers), 'upgrade');
         let response = upgradeArguments.shift();
         let socket = upgradeArguments.shift();
         socket.setTimeout(0);

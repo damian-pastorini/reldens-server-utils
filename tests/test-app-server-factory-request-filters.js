@@ -20,6 +20,30 @@ class TestAppServerFactoryRequestFilters extends BaseTest
         this.gameAliasHostname = 'www.game.example.com';
         this.unknownHostname = 'unknown.example.com';
         this.privateNetworkRange = '10.0.0.0/8';
+        this.pathPrefix = '/api';
+        this.allowedAddress = '203.0.113.9';
+        this.deniedAddress = '198.51.100.7';
+        this.globalRateLimitConfig = {globalRateLimit: 1, maxRequests: 1};
+    }
+
+    async runRefusedUpgradeAfterAProxiedRequest(ruleOverrides, appServerConfig, proxiedRequest, upgradeHeaders)
+    {
+        return await this.builder.runProxyExchange(ruleOverrides, appServerConfig, async (port) => ({
+            proxiedStatusCode: (await this.localHttpExchange.sendRequest(port, proxiedRequest)).statusCode,
+            upgradeStatusCode: await this.localHttpExchange.sendRefusedUpgrade(
+                port,
+                this.builder.websocketPath,
+                upgradeHeaders
+            ),
+            targetUpgradesCount: this.builder.targetUpgradeRequests.length
+        }));
+    }
+
+    assertRefusedUpgrade(exchange, upgradeStatusCode)
+    {
+        this.assert.strictEqual(exchange.proxiedStatusCode, 200);
+        this.assert.strictEqual(exchange.upgradeStatusCode, upgradeStatusCode);
+        this.assert.strictEqual(exchange.targetUpgradesCount, 0);
     }
 
     async testTheVirtualHostResolvesTheDomainAndItsAliases()
@@ -107,6 +131,83 @@ class TestAppServerFactoryRequestFilters extends BaseTest
             });
             this.assert.deepStrictEqual(responses.map((response) => response.statusCode), [200, 200, 429]);
             this.assert.strictEqual(String(responses.pop().body), appServerFactory.tooManyRequestsMessage);
+        });
+    }
+
+    async testTheProtocolHeaderIgnoresTheVisitorForwardedProto()
+    {
+        await this.test('the X-Forwarded-Proto response header is the request protocol, not the visitor value', async () => {
+            let response = await this.localHttpExchange.requestServer(
+                this.builder.createFactory({}).appServer,
+                {path: this.builder.playersPath, headers: {'X-Forwarded-Proto': 'https'}}
+            );
+            this.assert.strictEqual(response.headers['x-forwarded-proto'], 'http');
+        });
+    }
+
+    async testTheProxiedUpgradeForAnotherHostnameIsRefused()
+    {
+        await this.test('a websocket upgrade for another hostname is refused and never reaches the target', async () => {
+            let exchange = await this.runRefusedUpgradeAfterAProxiedRequest(
+                {},
+                {},
+                this.builder.proxiedRequest,
+                this.builder.otherHostRequest.headers
+            );
+            this.assertRefusedUpgrade(exchange, 404);
+        });
+    }
+
+    async testTheProxiedUpgradeOutsideThePathPrefixIsRefused()
+    {
+        await this.test('a websocket upgrade outside the rule path prefix is refused', async () => {
+            let exchange = await this.runRefusedUpgradeAfterAProxiedRequest(
+                {pathPrefix: this.pathPrefix},
+                {},
+                Object.assign({}, this.builder.proxiedRequest, {path: this.pathPrefix+this.builder.proxiedPath}),
+                this.builder.proxiedRequest.headers
+            );
+            this.assertRefusedUpgrade(exchange, 404);
+        });
+    }
+
+    async testTheProxiedUpgradeFromADeniedAddressIsRefused()
+    {
+        await this.test('a websocket upgrade from a denied address is refused and never reaches the target', async () => {
+            let exchange = await this.runRefusedUpgradeAfterAProxiedRequest(
+                {},
+                {trustedProxy: 'loopback', ipLists: {enabled: true, deny: [this.deniedAddress]}},
+                {
+                    path: this.builder.proxiedPath,
+                    headers: Object.assign({'X-Forwarded-For': this.allowedAddress}, this.builder.proxiedRequest.headers)
+                },
+                Object.assign({'X-Forwarded-For': this.deniedAddress}, this.builder.proxiedRequest.headers)
+            );
+            this.assertRefusedUpgrade(exchange, 403);
+        });
+    }
+
+    async testTheProxiedRequestsCountForTheGlobalRateLimit()
+    {
+        await this.test('the proxied requests over the global rate limit get 429', async () => {
+            let statusCodes = await this.builder.runProxyExchange({}, this.globalRateLimitConfig, async (port) => [
+                (await this.localHttpExchange.sendRequest(port, this.builder.proxiedRequest)).statusCode,
+                (await this.localHttpExchange.sendRequest(port, this.builder.proxiedRequest)).statusCode
+            ]);
+            this.assert.deepStrictEqual(statusCodes, [200, 429]);
+        });
+    }
+
+    async testTheProxiedUpgradeOverTheGlobalRateLimitIsRefused()
+    {
+        await this.test('a websocket upgrade over the global rate limit is refused and never reaches the target', async () => {
+            let exchange = await this.runRefusedUpgradeAfterAProxiedRequest(
+                {},
+                this.globalRateLimitConfig,
+                this.builder.proxiedRequest,
+                this.builder.proxiedRequest.headers
+            );
+            this.assertRefusedUpgrade(exchange, 429);
         });
     }
 
