@@ -11,7 +11,9 @@ const { TestPackageResolver } = require('./test-package-resolver');
 const { TestExpressModuleReexports } = require('./test-express-module-reexports');
 const { TestAppServerFactory } = require('./test-app-server-factory');
 const { TestAppServerFactoryRequestFilters } = require('./test-app-server-factory-request-filters');
+const { TestAppServerFactoryStatics } = require('./test-app-server-factory-statics');
 const { TestReverseProxyConfigurer } = require('./test-reverse-proxy-configurer');
+const { TestAppServerFactoryErrorResponse } = require('./test-app-server-factory-error-response');
 
 class RunTests
 {
@@ -26,7 +28,9 @@ class RunTests
             TestExpressModuleReexports,
             TestAppServerFactory,
             TestAppServerFactoryRequestFilters,
-            TestReverseProxyConfigurer
+            TestAppServerFactoryStatics,
+            TestReverseProxyConfigurer,
+            TestAppServerFactoryErrorResponse
         ];
         this.testCount = 0;
         this.passedCount = 0;

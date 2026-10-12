@@ -82,8 +82,13 @@ Creates Express app servers with modular security components. Supports HTTP, HTT
 - `onRequestSuccess` - Callback for successful requests
 - `onRequestError` - Callback for failed requests
 - `onEvent` - Callback for lifecycle events
+- `staticDotfiles` - The `dotfiles` value applied to every static middleware that does not set its own (default `'ignore'`, nothing inside a dot folder like `.git` is served)
+- `applicationFramework` - The Express module for the consumers (`Router()`, `json()`, `applicationFramework()`), its `static()` is `createStaticMiddleware()`
+- `applicationEnvironment` - The Express app `env` set by `createAppServer()` (default `'production'`), any other value makes the Express final handler send the error stack in the response
 
 **Methods:**
+- `createApplicationFramework()` - Build the `applicationFramework` function: inherits every Express member and replaces only `static()`
+- `createStaticMiddleware(root, options)` - Express `static()` with `dotfiles` set to `staticDotfiles` when the options do not set it
 - `createAppServer(config)` - Create and configure server
 - `createHttp2CdnServer()` - Create HTTP/2 CDN server with optional multi-cert SNI
 - `addDomain(domainConfig)` - Add virtual host domain
@@ -91,6 +96,7 @@ Creates Express app servers with modular security components. Supports HTTP, HTT
 - `dispatch(eventName, eventData)` - Dispatch lifecycle event (wrapper for EventDispatcher)
 - `handleError(errorType, error, context)` - Handle and log error (wrapper for ServerErrorHandler)
 - `enableServeHome(app, callback)` - Enable homepage serving
+- `enableErrorResponse(app)` - Register the final error middleware (`ErrorResponseConfigurer`) with `processErrorResponse`, `onError` and `onEvent`, call it after every route of the app
 - `serveStatics(app, staticPath)` - Serve static files
 - `enableCSP(cspOptions)` - Enable Content Security Policy
 - `listen(port)` - Start server listening
@@ -106,6 +112,7 @@ Creates Express app servers with modular security components. Supports HTTP, HTT
 - `ReverseProxyConfigurer` - Domain-based reverse proxy
 - `IpListsConfigurer` - Allow and deny address lists
 - `ClientAddressGuard` - Client address resolution for the raw server requests
+- `ErrorResponseConfigurer` - Final error middleware reporting to `onError`
 
 ### Encryptor
 `lib/encryptor.js`
@@ -414,3 +421,13 @@ Created by `AppServerFactory.attachClientAddressGuard(server)` for the requests 
 - `normalizeRequest(request)` - Resolve the address with proxy-addr and the trust proxy function, remove the X-Real-IP, X-Forwarded-For and X-Client-IP headers and set X-Real-IP to the resolved address
 - `attachToServer(server)` - Normalize every upgrade request first and wrap the current server request listeners
 - `handleRequest(request, response, requestListeners, server)` - Normalize the `/matchmake/` requests and answer 403 for the denied addresses, every other request reaches the wrapped listeners untouched
+
+### ErrorResponseConfigurer
+`error-response-configurer.js`
+
+Created by `AppServerFactory` and installed with `enableErrorResponse(app)`, the final Express error middleware: Express 5 sends every rejected async handler here.
+
+**Methods:**
+- `setup(app, config)` - Register the 4-argument error middleware with `{processErrorResponse, onError, onEvent}`, it must be the last registration of the app
+- `respondError(error, req, res, next)` - Report the error to `onError` (key `request-error`, with `request`, `response`, `statusCode` and `path`), answer through `processErrorResponse(statusCode, message, req, res)` when it is a function, otherwise call `next(error)` so the Express final handler answers (no stack while the app env is `production`)
+- `fetchStatusCode(error)` - The 4xx `status` or `statusCode` of the error (body parser errors), any other error is 500

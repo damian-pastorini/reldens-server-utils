@@ -596,6 +596,7 @@ reverseProxyRules: [
 - `addDevelopmentDomain(domain)` - Adds development domain pattern
 - `setDomainMapping(mapping)` - Sets domain to configuration mapping
 - `enableServeHome(app, callback)` - Enables homepage serving
+- `enableErrorResponse(app)` - Registers the final error middleware, call it after the last route of the app (Express 5 sends every rejected async handler there)
 - `serveStatics(app, staticPath)` - Serves static files
 - `serveStaticsPath(app, route, staticPath)` - Serves static files on specific route
 - `enableCSP(cspOptions)` - Enables Content Security Policy
@@ -629,6 +630,8 @@ reverseProxyRules: [
   - `key` - Error type identifier (e.g., 'server-error', 'virtual-host-error')
   - `error` - The error object
   - Additional context data (port, hostname, path, etc.)
+- `processErrorResponse` - Optional function `(statusCode, message, req, res)` that renders the error page, used by `enableServeHome()` and `enableErrorResponse()`; without it the Express final handler answers
+- `applicationEnvironment` - The Express app `env` (default: 'production'), any other value sends the error stack in the error responses
 
 ### Http2CdnServer Methods
 
