@@ -11,7 +11,7 @@
 ## Key Commands
 
 ```bash
-# Run tests (if configured)
+# Run the unit tests (tests/run-tests.js runs every class listed in its testClasses)
 npm test
 ```
 
@@ -39,6 +39,8 @@ See `.claude/api-reference.md` for complete API documentation of all classes and
 
 ## Utility Classes Summary
 
+**PackageResolver** - Singleton that loads optional packages from the project `node_modules`, returns `false` and fills `error.message` (with the `npm install` command) when a package is missing; the caller logs it.
+
 **RequestLogger** - Express middleware for request logging that invokes callbacks based on status codes.
 
 **EventDispatcher** - Static utility for dispatching lifecycle events with structured event data.
@@ -51,6 +53,8 @@ See `.claude/api-reference.md` for complete API documentation of all classes and
 
 **ServerHeaders** - Centralized header management for HTTP/2, security, cache, and proxy headers.
 
+**ExpressSession / ExpressBasicAuth** - The `express-session` and `express-basic-auth` modules exported from `index.js`, so Reldens requires them from this package instead of listing them in its own package.json.
+
 ## Security Configurers Summary
 
 Located in `lib/app-server-factory/`:
@@ -60,6 +64,9 @@ Located in `lib/app-server-factory/`:
 - **CorsConfigurer** - CORS with dynamic origin validation
 - **RateLimitConfigurer** - Global and endpoint-specific rate limiting
 - **ReverseProxyConfigurer** - Domain-based reverse proxy with WebSocket support
+- **IpListsConfigurer** - Allow and deny address lists with validated CIDR entries
+- **ClientAddressGuard** - Resolves the client address with the trusted proxy settings on the raw server upgrade and matchmake requests
+- **ErrorResponseConfigurer** - Final Express error middleware installed with `enableErrorResponse(app)`, reports to `onError` and answers through `processErrorResponse` or the Express final handler
 
 ## Important Notes
 
@@ -77,6 +84,7 @@ Located in `lib/app-server-factory/`:
 
 ### Server Configuration
 - AppServerFactory handles all Express server configuration
+- Express 5: a bare `*` route throws at registration (path-to-regexp 8), use `/{*name}`; `req.body` is undefined when nothing was parsed; the default query parser is `simple`, so `filters[key]` query keys stay flat; rejected async handlers reach the error middleware, so the consumers call `enableErrorResponse(app)` after their last route
 - All server utilities support both HTTP and HTTPS
 - Virtual hosts with SNI support for multiple domains
 - HTTP/2 CDN server integration for static file serving
@@ -88,3 +96,11 @@ Located in `lib/app-server-factory/`:
 - CSP management with Helmet integration
 - CORS with dynamic origin validation (supports strings and RegExp)
 - Rate limiting with development mode awareness
+- Client address resolved from the socket peer, the forwarding headers are only trusted through `trustedProxy`
+- The reverse proxy always replaces the visitor forwarding headers (X-Forwarded-For, X-Real-IP, X-Forwarded-Proto, X-Forwarded-Host, X-Client-IP) on requests and WebSocket upgrades before forwarding
+- The reverse proxy handles the server upgrades itself: only the rule hostname and path prefix are proxied and the IP lists are applied, the http-proxy-middleware `ws` option stays off because it proxies every upgrade of the server
+- The proxy middleware runs before the global rate limiter, so the proxied requests and upgrades are counted through `RateLimitConfigurer.isWithinGlobalLimit()` in the same store
+- `createAppServer()` sets the Express app `env` to `applicationEnvironment` (default `'production'`), because without NODE_ENV Express runs as `development` and its final handler sends the error stack in the response
+- Static files: `applicationFramework.static()` (also used by `serveStatics()` and `serveStaticsPath()`) sets `dotfiles` to `staticDotfiles` (`'ignore'`) when the caller does not set it, because Express 4 without the option serves the files inside dot folders (`/.git/config`); the consumers must use `appServerFactory.applicationFramework` and never `require('express')`
+- No class reads X-Forwarded-For, X-Forwarded-Host or X-Forwarded-Proto directly: Express code uses `req.ip`, `req.hostname` and `req.protocol`, raw requests use proxy-addr with the app `trust proxy` function (`ClientAddressGuard`, `ReverseProxyConfigurer`, `Http2CdnServer.resolveRequestOrigin`)
+- This package is the security boundary of every Reldens server: never propose replacing, removing or reimplementing a component (for example the `http-proxy-middleware` reverse proxy) without first listing every attack the replacement takes over, and verify in the source whether an audit finding is reachable from our usage before proposing to replace a dependency

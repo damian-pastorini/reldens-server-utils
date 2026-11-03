@@ -285,7 +285,7 @@ if(hashedPassword){
 }
 
 // Validate password
-let isValid = Encryptor.validatePassword('userPassword123', hashedPassword);
+let isValid = await Encryptor.validatePassword('userPassword123', hashedPassword);
 console.log('Password valid:', isValid);
 
 // Generate secure token
@@ -442,9 +442,9 @@ let serverResult = appServerFactory.createAppServer({
             }
         }
     },
-    globalRateLimit: 100, // requests per window
+    globalRateLimit: 1, // switch, any truthy value installs the global limiter, it is NOT a requests count
     windowMs: 60000, // 1 minute
-    maxRequests: 30,
+    maxRequests: 30, // requests per window, this is the count
     trustedProxy: '127.0.0.1',
     useXssProtection: true,
     sanitizeOptions: {allowedTags: [], allowedAttributes: {}}
@@ -556,9 +556,11 @@ let serverResult = appServerFactory.createAppServer({
 #### Reverse Proxy Features
 
 - Multiple backend routing with independent configuration per domain
-- WebSocket support for real-time applications
+- WebSocket support for real-time applications, the upgrades are only proxied for the rule hostname and path prefix and are checked against the IP lists
+- The proxied requests and upgrades count in the global rate limit (`globalRateLimit`) like the local requests
 - SSL termination at entry point
-- Header preservation (X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host)
+- Forwarding headers set by the proxy (X-Forwarded-For, X-Real-IP, X-Forwarded-Proto, X-Forwarded-Host) on every request and WebSocket upgrade, the values sent by a visitor are replaced so the client address can not be spoofed, only an upstream proxy trusted through `trustedProxy` can provide them
+- A target behind the proxy must trust it (for example `trustedProxy: 'loopback'`) to use the forwarded client address
 - Virtual host integration
 - Path-based routing
 - Comprehensive error handling with proper HTTP status codes:
@@ -594,10 +596,12 @@ reverseProxyRules: [
 - `addDevelopmentDomain(domain)` - Adds development domain pattern
 - `setDomainMapping(mapping)` - Sets domain to configuration mapping
 - `enableServeHome(app, callback)` - Enables homepage serving
+- `enableErrorResponse(app)` - Registers the final error middleware, call it after the last route of the app (Express 5 sends every rejected async handler there)
 - `serveStatics(app, staticPath)` - Serves static files
 - `serveStaticsPath(app, route, staticPath)` - Serves static files on specific route
 - `enableCSP(cspOptions)` - Enables Content Security Policy
 - `listen(port)` - Starts server listening
+- `attachClientAddressGuard(server)` - Resolves the client address with the trusted proxy settings on the server upgrade and `/matchmake/` requests, and applies the IP lists to the matchmake requests
 - `close()` - Gracefully closes server
 
 ### AppServerFactory HTTP/2 CDN Configuration
@@ -626,6 +630,8 @@ reverseProxyRules: [
   - `key` - Error type identifier (e.g., 'server-error', 'virtual-host-error')
   - `error` - The error object
   - Additional context data (port, hostname, path, etc.)
+- `processErrorResponse` - Optional function `(statusCode, message, req, res)` that renders the error page, used by `enableServeHome()` and `enableErrorResponse()`; without it the Express final handler answers
+- `applicationEnvironment` - The Express app `env` (default: 'production'), any other value sends the error stack in the error responses
 
 ### Http2CdnServer Methods
 
@@ -685,7 +691,8 @@ reverseProxyRules: [
 ### Encryptor Methods
 
 - `encryptPassword(password)` - Hashes password with salt
-- `validatePassword(password, hash)` - Validates password against hash
+- `validatePassword(password, hash)` - Async, resolves true when the password matches the hash, it does not block the
+  event loop so it must be awaited
 - `generateSecretKey()` - Generates 256-bit secret key
 - `encryptData(data, key)` - Encrypts data with AES-256-GCM
 - `decryptData(encryptedData, key)` - Decrypts AES-256-GCM data
@@ -694,7 +701,7 @@ reverseProxyRules: [
 - `hashData(data, algorithm)` - Hashes data with specified algorithm
 - `generateHMAC(data, secret, algorithm)` - Generates HMAC signature
 - `verifyHMAC(data, secret, signature, algorithm)` - Verifies HMAC signature
-- `constantTimeCompare(a, b)` - Performs constant-time string comparison
+- `constantTimeCompare(a, b)` - Performs constant-time string comparison, false when the byte lengths differ
 
 ### UploaderFactory Methods
 
@@ -713,6 +720,23 @@ reverseProxyRules: [
   - `key` - Error type identifier
   - `error` - The error object
   - `context` - Additional context object (port, hostname, path, etc.)
+
+### Shared Express Packages
+
+The package exports the Express packages it already depends on, so the projects that use it don't list them again:
+
+- `ExpressSession` - The `express-session` module (for example `ExpressSession.Store` for a custom session store)
+- `ExpressBasicAuth` - The `express-basic-auth` middleware factory
+
+```javascript
+const { ExpressSession, ExpressBasicAuth } = require('@reldens/server-utils');
+
+class MySessionStore extends ExpressSession.Store
+{
+}
+
+app.use('/monitor', ExpressBasicAuth({users: {admin: 'password'}, challenge: true}));
+```
 
 ## Security Features
 

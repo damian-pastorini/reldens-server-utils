@@ -82,8 +82,13 @@ Creates Express app servers with modular security components. Supports HTTP, HTT
 - `onRequestSuccess` - Callback for successful requests
 - `onRequestError` - Callback for failed requests
 - `onEvent` - Callback for lifecycle events
+- `staticDotfiles` - The `dotfiles` value applied to every static middleware that does not set its own (default `'ignore'`, nothing inside a dot folder like `.git` is served)
+- `applicationFramework` - The Express module for the consumers (`Router()`, `json()`, `applicationFramework()`), its `static()` is `createStaticMiddleware()`
+- `applicationEnvironment` - The Express app `env` set by `createAppServer()` (default `'production'`), any other value makes the Express final handler send the error stack in the response
 
 **Methods:**
+- `createApplicationFramework()` - Build the `applicationFramework` function: inherits every Express member and replaces only `static()`
+- `createStaticMiddleware(root, options)` - Express `static()` with `dotfiles` set to `staticDotfiles` when the options do not set it
 - `createAppServer(config)` - Create and configure server
 - `createHttp2CdnServer()` - Create HTTP/2 CDN server with optional multi-cert SNI
 - `addDomain(domainConfig)` - Add virtual host domain
@@ -91,9 +96,11 @@ Creates Express app servers with modular security components. Supports HTTP, HTT
 - `dispatch(eventName, eventData)` - Dispatch lifecycle event (wrapper for EventDispatcher)
 - `handleError(errorType, error, context)` - Handle and log error (wrapper for ServerErrorHandler)
 - `enableServeHome(app, callback)` - Enable homepage serving
+- `enableErrorResponse(app)` - Register the final error middleware (`ErrorResponseConfigurer`) with `processErrorResponse`, `onError` and `onEvent`, call it after every route of the app
 - `serveStatics(app, staticPath)` - Serve static files
 - `enableCSP(cspOptions)` - Enable Content Security Policy
 - `listen(port)` - Start server listening
+- `attachClientAddressGuard(server)` - Attach a ClientAddressGuard to a server already bound by the application (for example the Colyseus transport server, after its listen), using the app trust proxy function and the IP lists
 - `close()` - Gracefully close server
 
 **Security Configurers:**
@@ -103,6 +110,9 @@ Creates Express app servers with modular security components. Supports HTTP, HTT
 - `CorsConfigurer` - CORS with dynamic origin validation
 - `RateLimitConfigurer` - Global and endpoint-specific rate limiting
 - `ReverseProxyConfigurer` - Domain-based reverse proxy
+- `IpListsConfigurer` - Allow and deny address lists
+- `ClientAddressGuard` - Client address resolution for the raw server requests
+- `ErrorResponseConfigurer` - Final error middleware reporting to `onError`
 
 ### Encryptor
 `lib/encryptor.js`
@@ -111,7 +121,8 @@ Singleton for cryptographic operations.
 
 **Password Hashing:**
 - `encryptPassword(password)` - Hash password with PBKDF2 (100k iterations, SHA-512)
-- `validatePassword(password, storedPassword)` - Validate password against hash
+- `validatePassword(password, storedPassword)` - Async, validate password against hash with the asynchronous pbkdf2 so it
+  does not block the event loop; always await it, an un-awaited Promise is truthy
 
 **Data Encryption:**
 - `encryptData(data, key)` - Encrypt data with AES-256-GCM
@@ -125,8 +136,8 @@ Singleton for cryptographic operations.
 **Hashing and Verification:**
 - `hashData(data, algorithm)` - Hash with SHA-256, SHA-512, or MD5
 - `generateHMAC(data, secret, algorithm)` - Generate HMAC signature
-- `verifyHMAC(data, secret, signature, algorithm)` - Verify HMAC signature
-- `constantTimeCompare(a, b)` - Constant-time string comparison
+- `verifyHMAC(data, secret, signature, algorithm)` - Verify HMAC signature through constantTimeCompare
+- `constantTimeCompare(a, b)` - Constant-time string comparison, returns false (never throws) when the byte lengths differ
 
 ### UploaderFactory
 `lib/uploader-factory.js`
@@ -161,6 +172,7 @@ File upload handling with Multer.
 HTTP/2 secure server for CDN-like static file serving.
 
 **Features:**
+- `trustProxyFunction` (set by AppServerFactory from the app `trust proxy` setting) and `resolveRequestOrigin(headers, socket, hostHeaderName)`: the request callbacks receive the socket address and Host, the X-Forwarded-For and X-Forwarded-Host values only when the socket peer passes the trust function
 - Multi-certificate SNI support for multiple domains
 - Optimized for CSS, JavaScript, images, and fonts
 - Dynamic CORS origin validation with regex pattern support
@@ -206,6 +218,27 @@ domains: [
 
 ## Utility Classes
 
+### PackageResolver
+`lib/package-resolver.js`
+
+Singleton that loads a package from the project `node_modules`, used for the optional packages (storage drivers, mailer services) that are only available when the project installs them.
+
+**Methods:**
+- `loadPackage(packageName, projectPath)` - Return the loaded package, or `false` when it can not be resolved
+- `resolvePath(packageName, projectPath)` - Resolve the package path from `projectPath` (or the package name itself when no path is given)
+
+**Properties:**
+- `error` - `{message: ''}` on success, or `{message, packageName, projectPath, error}` after a failed load; the message includes the `npm install` command
+
+The class does not log, the caller decides the log level (`Logger.critical(PackageResolver.error.message)` for a required package, nothing for an availability check).
+
+### Shared Express Packages
+`index.js`
+
+The Express packages the package depends on are exported so the projects (Reldens) don't duplicate them in their package.json:
+- `ExpressSession` - The `express-session` module, used for `ExpressSession.Store` in the custom session stores
+- `ExpressBasicAuth` - The `express-basic-auth` middleware factory, used to protect the Colyseus monitor
+
 ### RequestLogger
 `lib/request-logger.js`
 
@@ -217,6 +250,7 @@ Express middleware for request logging.
 Tracks request timing and invokes callbacks based on status code:
 - Status < 400: calls onRequestSuccess
 - Status >= 400: calls onRequestError
+- The logged `ip` and `hostname` are `req.ip` and `req.hostname`, so the forwarding headers are only used when they come from a proxy trusted through `trustedProxy`
 
 ### EventDispatcher
 `lib/event-dispatcher.js`
@@ -292,7 +326,7 @@ Checks NODE_ENV, domain patterns, and configured domains. Built-in patterns: loc
 Enforces HTTP/HTTPS protocol consistency.
 
 **Methods:**
-- `setup(app, config)` - Setup protocol enforcement middleware
+- `setup(app, config)` - Setup protocol enforcement middleware, the protocol is `req.protocol` (X-Forwarded-Proto only from a trusted proxy) and the development redirect is only skipped for a trusted proxy request
 
 Development mode awareness with automatic redirects when protocol doesn't match configuration.
 
@@ -327,7 +361,8 @@ Development domain support with automatic port variations. Credential support co
 Global and endpoint-specific rate limiting.
 
 **Methods:**
-- `setup(app, config)` - Setup global rate limiting
+- `setup(app, config)` - Setup global rate limiting, the limiter counts in `globalStore` (an express-rate-limit `MemoryStore`) with the `globalLimit` maximum
+- `isWithinGlobalLimit(clientAddress)` - Count a request that does not reach the global limiter middleware (proxied requests and upgrades) in the same store and key, true when the global limit is off
 - `createHomeLimiter()` - Create homepage-specific limiter
 
 Development mode multiplier for lenient limits. IP-based key generation option.
@@ -339,18 +374,60 @@ Domain-based reverse proxy routing.
 
 **Methods:**
 - `setup(app, config)` - Setup reverse proxy
-- `createProxyMiddleware(rule)` - Create proxy middleware for rule
-- `handleProxyError(err, req, res)` - Handle proxy errors with status codes
+- `createProxyMiddleware(rule)` - Create proxy middleware for rule, with the http-proxy-middleware `ws` option always off so it never subscribes to every server upgrade
+- `attachToServer(server)` - Register the server `upgrade` listener when a rule has WebSocket enabled, called by AppServerFactory after the server is created
+- `proxyRequest(proxyMiddleware, req, res, next)` - Count the proxied request in the global rate limit (429 over it), replace the forwarding headers and proxy it
+- `handleUpgrade(req, socket, head, server)` - Proxy an upgrade only for a matching WebSocket rule, answers 403 for an address denied by the IP lists, 429 over the global rate limit and 404 for no matching rule when no other `upgrade` listener exists, the client address is resolved with the app `trust proxy` function
+- `findUpgradeRule(req)` - Find the WebSocket rule for the upgrade hostname (with virtual hosts) and path prefix
+- `matchesPathPrefix(requestPath, pathPrefix)` - Match the path segments of a rule path prefix
+- `handleProxyError(error, req, res)` - Handle proxy errors with status codes, closes the socket of a failed WebSocket upgrade
 - `validateProxyRule(rule)` - Validate proxy rule configuration
-- `extractHostname(req)` - Extract hostname from request
+- `extractHostname(req)` - Extract hostname from the Host header, works on the raw upgrade requests
+- `resolveForwardedHeaders(req)` - Build X-Forwarded-For and X-Real-IP with the client address resolved by proxy-addr and the app `trust proxy` function, and X-Forwarded-Proto and X-Forwarded-Host from a trusted upstream proxy or from the connection
+- `applyForwardedHeaders(req)` - Replace the forwarding headers of a request before it is proxied and remove X-Client-IP, done on the request itself because httpxy skips its `proxyReq` event for requests with an `Expect` header
+- `applyUpgradeForwardedHeaders(proxyReq, req)` - Same replacement on the outgoing request of a WebSocket upgrade, through the `proxyReqWs` event
 
 **Features:**
-- WebSocket support
+- WebSocket support, upgrades are only proxied for the rule hostname and path prefix and pass the IP lists, from the first upgrade without a previous request
+- The proxied requests and upgrades count in the global rate limit (`globalRateLimit`, `maxRequests`, `windowMs`) with the same key as the local requests
 - SSL termination
-- Header preservation (X-Forwarded-For, X-Forwarded-Proto, X-Forwarded-Host)
+- Forwarding headers always set by the proxy (X-Forwarded-For, X-Real-IP, X-Forwarded-Proto, X-Forwarded-Host) on requests and WebSocket upgrades, the values sent by a visitor are never forwarded, only the ones of an upstream proxy trusted through `trustedProxy`
+- A Reldens target behind the proxy must trust it (`trustedProxy: 'loopback'`, `RELDENS_EXPRESS_TRUSTED_PROXY`) to use the forwarded client address, otherwise every visitor is seen as the proxy address
 - Virtual host integration
 - Comprehensive error handling:
   - 502 Bad Gateway for ECONNREFUSED errors
   - 504 Gateway Timeout for ETIMEDOUT/ESOCKETTIMEDOUT errors
   - 500 Internal Server Error for other proxy errors
 - Custom error callback support via ServerErrorHandler
+
+### IpListsConfigurer
+`ip-lists-configurer.js`
+
+Mutable allow and deny address lists consulted at request time.
+
+**Methods:**
+- `setLists(params)` - Replace the lists with `{enabled, allow, deny, forbiddenMessage}`
+- `isAllowed(address)` - Check an address, a value that is not an IP is denied only when there are allow entries
+- `setup(app)` - Install the Express middleware answering 403 for the denied `req.ip`
+
+Entries are addresses or CIDR ranges, a range needs an integer prefix up to 32 (IPv4) or 128 (IPv6), any other entry is ignored.
+
+### ClientAddressGuard
+`client-address-guard.js`
+
+Created by `AppServerFactory.attachClientAddressGuard(server)` for the requests that never reach the Express middleware.
+
+**Methods:**
+- `normalizeRequest(request)` - Resolve the address with proxy-addr and the trust proxy function, remove the X-Real-IP, X-Forwarded-For and X-Client-IP headers and set X-Real-IP to the resolved address
+- `attachToServer(server)` - Normalize every upgrade request first and wrap the current server request listeners
+- `handleRequest(request, response, requestListeners, server)` - Normalize the `/matchmake/` requests and answer 403 for the denied addresses, every other request reaches the wrapped listeners untouched
+
+### ErrorResponseConfigurer
+`error-response-configurer.js`
+
+Created by `AppServerFactory` and installed with `enableErrorResponse(app)`, the final Express error middleware: Express 5 sends every rejected async handler here.
+
+**Methods:**
+- `setup(app, config)` - Register the 4-argument error middleware with `{processErrorResponse, onError, onEvent}`, it must be the last registration of the app
+- `respondError(error, req, res, next)` - Report the error to `onError` (key `request-error`, with `request`, `response`, `statusCode` and `path`), answer through `processErrorResponse(statusCode, message, req, res)` when it is a function, otherwise call `next(error)` so the Express final handler answers (no stack while the app env is `production`)
+- `fetchStatusCode(error)` - The 4xx `status` or `statusCode` of the error (body parser errors), any other error is 500
